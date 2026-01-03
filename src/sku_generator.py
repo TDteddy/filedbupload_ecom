@@ -231,11 +231,11 @@ class SKUGenerator:
         record = {
             'ID_master': new_master_id,
 
-            # From GPT
+            # From GPT (default to 0 if missing for profit calculation)
             'Name_product_short_at_SKU_master': gpt_data.get('Name_product_short_at_SKU_master'),
             'Name_brand_at_SKU_master': gpt_data.get('Name_brand_at_SKU_master'),
-            'Cost_product_at_SKU_master': gpt_data.get('Cost_product_at_SKU_master'),
-            'Price_list_at_SKU_master': gpt_data.get('Price_list_at_SKU_master'),
+            'Cost_product_at_SKU_master': gpt_data.get('Cost_product_at_SKU_master') or 0,
+            'Price_list_at_SKU_master': gpt_data.get('Price_list_at_SKU_master') or 0,
 
             # From base SKU (copy over)
             'ID_erp_at_SKU_master': base_sku.get('ID_erp_at_SKU_master'),
@@ -295,19 +295,22 @@ class SKUGenerator:
             record['Category_2p_1_coupang_at_SKU_master'] = unmatched_product.get('category', base_sku.get('Category_2p_1_coupang_at_SKU_master'))
             record['Sales_type_coupang_at_SKU_master'] = unmatched_product.get('sales_type', base_sku.get('Sales_type_coupang_at_SKU_master'))
 
+            # Ensure cost/price are not None (use 0 for profit calculation)
+            cost = record.get('Cost_product_at_SKU_master') or 0
+            price = record.get('Price_list_at_SKU_master') or 0
+
             # Adjust price for case 1 (count) or case 2 (refund)
             if case_type == 1:
                 # Keep original price (template doesn't know exact count ratio)
-                pass
+                record['Cost_product_at_SKU_master'] = cost
+                record['Price_list_at_SKU_master'] = price
             elif case_type == 2:
                 # Apply 20% discount for refund items
-                if record.get('Cost_product_at_SKU_master'):
-                    record['Cost_product_at_SKU_master'] = record['Cost_product_at_SKU_master'] * 0.8
-                if record.get('Price_list_at_SKU_master'):
-                    record['Price_list_at_SKU_master'] = record['Price_list_at_SKU_master'] * 0.8
+                record['Cost_product_at_SKU_master'] = cost * 0.8
+                record['Price_list_at_SKU_master'] = price * 0.8
 
         else:
-            # New product - create minimal record
+            # New product - create minimal record with 0 cost/price
             record = {
                 'ID_master': new_master_id,
                 'Name_product_short_at_SKU_master': unmatched_product.get('option_name'),
@@ -315,6 +318,8 @@ class SKUGenerator:
                 'ID_product_sku_coupang_at_SKU_master': unmatched_product.get('product_id'),
                 'Category_2p_1_coupang_at_SKU_master': unmatched_product.get('category'),
                 'Sales_type_coupang_at_SKU_master': unmatched_product.get('sales_type'),
+                'Cost_product_at_SKU_master': 0,
+                'Price_list_at_SKU_master': 0,
             }
 
         return record
