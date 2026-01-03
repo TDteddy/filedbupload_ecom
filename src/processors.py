@@ -490,9 +490,9 @@ class FileProcessor:
                     reasoning = analysis_result['reasoning']
 
                     case_names = {
-                        1: "수량변경 자동생성",
+                        1: "개수변경 자동생성 (같은 패키지)",
                         2: "환불재판매",
-                        3: "신규상품"
+                        3: "신규상품 (용량변경 포함)"
                     }
 
                     print(f"🎯 GPT 분석 결과:")

@@ -37,7 +37,7 @@ class SKUGenerator:
         Generate new ID_master based on case type.
 
         Args:
-            case_type: int (1: quantity, 2: refund, 3: new)
+            case_type: int (1: count(same package), 2: refund, 3: new(incl. package change))
             base_master_id: str or None (base product's ID_master)
             existing_master_ids: set of all existing ID_master values
 
@@ -45,7 +45,7 @@ class SKUGenerator:
             str: New ID_master
         """
         if case_type == 1:
-            # Quantity variation: base_master_id + "-1", "-2", "-3"...
+            # Count variation (same package): base_master_id + "-1", "-2", "-3"...
             return self._generate_suffix_id(base_master_id, existing_master_ids, numeric=True)
 
         elif case_type == 2:
@@ -147,7 +147,7 @@ class SKUGenerator:
     def _generate_sku_with_gpt(self, case_type, new_master_id, unmatched_product, base_sku):
         """Generate SKU record using GPT for intelligent field population."""
         case_description = {
-            1: "수량변경 자동생성",
+            1: "개수변경 자동생성 (같은 패키지)",
             2: "환불재판매"
         }
 
@@ -174,7 +174,7 @@ class SKUGenerator:
 ## 요청사항
 위 정보를 바탕으로 새로운 SKU_master 레코드를 생성하세요.
 
-**케이스 1 (수량변경)**: 기초 데이터 대부분 복사, 원가/정가는 수량 비율에 맞게 조정
+**케이스 1 (개수변경)**: 기초 데이터 대부분 복사, 원가/정가는 개수 비율에 맞게 조정 (같은 패키지이므로 정확히 배수 적용)
 **케이스 2 (환불재판매)**: 기초 데이터 복사, 원가/정가는 할인 적용 (예: 70-80%)
 
 다음 JSON 형식으로 응답하세요:
@@ -295,9 +295,9 @@ class SKUGenerator:
             record['Category_2p_1_coupang_at_SKU_master'] = unmatched_product.get('category', base_sku.get('Category_2p_1_coupang_at_SKU_master'))
             record['Sales_type_coupang_at_SKU_master'] = unmatched_product.get('sales_type', base_sku.get('Sales_type_coupang_at_SKU_master'))
 
-            # Adjust price for case 1 (quantity) or case 2 (refund)
+            # Adjust price for case 1 (count) or case 2 (refund)
             if case_type == 1:
-                # Keep original price (template doesn't know quantity ratio)
+                # Keep original price (template doesn't know exact count ratio)
                 pass
             elif case_type == 2:
                 # Apply 20% discount for refund items
