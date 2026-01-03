@@ -1,0 +1,57 @@
+"""
+SQLAlchemy models for database tables.
+This is a template file - replace with your actual models.
+
+Required models:
+- SKU_master: Master SKU mapping table
+- coupang_1p_auto_created_vender_ID: Auto-created vendor ID mapping
+"""
+
+from sqlalchemy import Column, Integer, String, Float, Date, DateTime, Text, Boolean
+from sqlalchemy.ext.declarative import declarative_base
+
+Base = declarative_base()
+
+
+class SKU_master(Base):
+    """
+    SKU Master table mapping.
+
+    This table should contain mappings between different platform IDs and the master ID.
+    """
+    __tablename__ = 'SKU_master'
+
+    # Primary key
+    ID_master = Column(Integer, primary_key=True, autoincrement=True)
+
+    # Platform-specific IDs
+    ID_option_vendor_coupang_at_SKU_master = Column(String(100), index=True)  # Coupang vendor item ID
+    ID_product_sku_coupang_at_SKU_master = Column(String(100), index=True)    # Coupang SKU ID
+    ID_product_naver_at_SKU_master = Column(String(100), index=True)          # Naver product ID
+    ID_product_cafe24_at_SKU_master = Column(String(100), index=True)         # Cafe24 product ID
+
+    # Add other fields as needed
+    # Name_product_at_SKU_master = Column(String(500))
+    # ...
+
+
+class coupang_1p_auto_created_vender_ID(Base):
+    """
+    Coupang 1P auto-created vendor ID mapping table.
+
+    Maps auto-created vendor IDs to SKU IDs.
+    """
+    __tablename__ = 'coupang_1p_auto_created_vender_ID'
+
+    # Primary key
+    Index = Column(Integer, primary_key=True, autoincrement=True)
+
+    # Mapping fields
+    ID_option_vendor_coupang_at_coupang_1p_auto_created_vender_ID = Column(String(100), index=True)
+    ID_product_sku_coupang_at_coupang_1p_auto_created_vender_ID = Column(String(100), index=True)
+
+    # Add other fields as needed
+
+
+# Note: You should replace this template with your actual models.py file
+# containing the correct table definitions from your database schema.
