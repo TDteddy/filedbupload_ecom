@@ -60,6 +60,75 @@ class DatabaseManager:
         """Context manager exit - close session."""
         self.close()
 
+    def insert_sku_master(self, sku_record):
+        """
+        Insert new SKU_master record.
+
+        Args:
+            sku_record: Dict with SKU_master fields
+
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        from models import SKU_master
+
+        try:
+            # Create new SKU_master instance
+            new_sku = SKU_master(**sku_record)
+
+            # Add and commit
+            self.session.add(new_sku)
+            self.session.commit()
+
+            print(f"✅ SKU_master 추가 성공: ID_master={sku_record.get('ID_master')}")
+            return True
+
+        except Exception as e:
+            print(f"❌ SKU_master 삽입 실패: {e}")
+            self.session.rollback()
+            return False
+
+    def get_all_master_ids(self):
+        """
+        Get all existing ID_master values.
+
+        Returns:
+            set: Set of all ID_master values
+        """
+        from models import SKU_master
+
+        try:
+            results = self.session.query(SKU_master.ID_master).all()
+            return {str(row[0]) for row in results}
+        except Exception as e:
+            print(f"❌ ID_master 조회 실패: {e}")
+            return set()
+
+    def get_sku_by_master_id(self, master_id):
+        """
+        Get SKU_master record by ID_master.
+
+        Args:
+            master_id: ID_master value
+
+        Returns:
+            dict or None: SKU record as dictionary
+        """
+        from models import SKU_master
+
+        try:
+            sku = self.session.query(SKU_master).filter(
+                SKU_master.ID_master == master_id
+            ).first()
+
+            if sku:
+                return sku.to_dict()
+            return None
+
+        except Exception as e:
+            print(f"❌ SKU_master 조회 실패: {e}")
+            return None
+
 
 def get_db_connection():
     """

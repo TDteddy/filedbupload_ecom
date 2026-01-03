@@ -33,16 +33,32 @@ from src.utils import (
 class FileProcessor:
     """Main file processor for e-commerce data files."""
 
-    def __init__(self, engine, sku_mappings):
+    def __init__(self, engine, sku_mappings, db_manager=None, session=None):
         """
         Initialize processor with database engine and SKU mappings.
 
         Args:
             engine: SQLAlchemy engine
             sku_mappings: Tuple of (sku_primary_map, sku_by_sku_id, sku_naver_map, sku_cafe24_map, auto_map)
+            db_manager: DatabaseManager instance (for SKU updates)
+            session: SQLAlchemy session
         """
         self.engine = engine
         self.sku_primary_map, self.sku_by_sku_id, self.sku_naver_map, self.sku_cafe24_map, self.auto_map = sku_mappings
+        self.db_manager = db_manager
+        self.session = session
+
+        # Initialize GPT analyzer and SKU generator
+        try:
+            from src.gpt_analyzer import CoupangProductAnalyzer
+            from src.sku_generator import SKUGenerator
+            self.gpt_analyzer = CoupangProductAnalyzer()
+            self.sku_generator = SKUGenerator(session) if session else None
+            print("✅ GPT 자동 매칭 시스템 활성화")
+        except Exception as e:
+            print(f"⚠️ GPT 시스템 초기화 실패: {e}")
+            self.gpt_analyzer = None
+            self.sku_generator = None
 
     def upload_coupang_2p_all(self, df_original, table_name="sales_report_coupang_2p_all"):
         """
@@ -392,10 +408,182 @@ class FileProcessor:
                 self.process_cafe24(filepath, df, compare_column, table_name)
             elif "쿠팡_첫구매광고" in filename:
                 self.process_coupang_firstbuy(filepath, df, compare_column, table_name)
+            elif "쿠팡_2p_전체" in filename.lower():
+                # NEW: Coupang 2P with GPT auto-matching
+                self.process_coupang_2p_with_gpt(filepath, df, compare_column, table_name)
             else:
-                # Common Coupang processing (1P, 2P, Growth Ad)
+                # Common Coupang processing (1P, Growth Ad)
                 self.process_coupang_common(filepath, df, compare_column, table_name)
 
         except Exception as e:
             print(f"❌ 처리 중 오류 발생: {e}")
             raise
+
+    def process_coupang_2p_with_gpt(self, filepath, df, compare_column, table_name):
+        """
+        Process Coupang 2P file with GPT-based auto SKU matching.
+        Unmatched products are analyzed by GPT and automatically added to SKU_master.
+        """
+        filename = os.path.basename(filepath)
+        print(f"\n🤖 GPT 기반 쿠팡 2P 처리 시작: {filename}")
+
+        # Normalize IDs
+        df[compare_column] = df[compare_column].apply(
+            lambda x: str(int(float(x))) if pd.notnull(x) and str(x).strip() != '' else ''
+        )
+
+        # 1차 매칭: 기존 SKU_master와 직접 매칭
+        df["ID_master"] = df[compare_column].map(self.sku_primary_map)
+
+        matched_count = df["ID_master"].notnull().sum()
+        unmatched_count = df["ID_master"].isnull().sum()
+
+        print(f"📊 1차 매칭 결과: 성공 {matched_count}건 / 실패 {unmatched_count}건")
+
+        # Save backup output file
+        save_output_file(df, filepath)
+
+        # Upload 2P all data (including unmatched)
+        self.upload_coupang_2p_all(df.copy())
+
+        # Process unmatched records with GPT
+        if unmatched_count > 0 and self.gpt_analyzer and self.sku_generator:
+            print(f"\n🔍 GPT 분석 시작: {unmatched_count}건의 미매칭 상품")
+            df_unmatched = df[df["ID_master"].isnull()].copy()
+
+            # Get existing SKU data for GPT analysis
+            from models import SKU_master
+            existing_skus = self.session.query(SKU_master).all()
+            existing_skus_list = [sku.to_dict() for sku in existing_skus]
+
+            # Get all existing master IDs
+            existing_master_ids = self.db_manager.get_all_master_ids()
+
+            newly_created = []
+
+            for idx, row in df_unmatched.iterrows():
+                option_id = str(row[compare_column])
+                if not option_id:
+                    continue
+
+                print(f"\n━━━ 처리 중 ({idx+1}/{len(df_unmatched)}): 옵션 ID {option_id} ━━━")
+
+                # Prepare product info for GPT
+                unmatched_product = {
+                    'option_id': option_id,
+                    'option_name': row.get('옵션명', ''),
+                    'product_id': row.get('등록상품ID', ''),
+                    'category': row.get('카테고리', ''),
+                    'sales_type': row.get('판매방식', ''),
+                }
+
+                # GPT analysis
+                try:
+                    analysis_result = self.gpt_analyzer.analyze_product(
+                        unmatched_product,
+                        existing_skus_list
+                    )
+
+                    case_type = analysis_result['case_type']
+                    base_master_id = analysis_result['base_master_id']
+                    confidence = analysis_result['confidence']
+                    reasoning = analysis_result['reasoning']
+
+                    case_names = {
+                        1: "수량변경 자동생성",
+                        2: "환불재판매",
+                        3: "신규상품"
+                    }
+
+                    print(f"🎯 GPT 분석 결과:")
+                    print(f"   케이스: {case_names.get(case_type, '알수없음')}")
+                    print(f"   기초 ID: {base_master_id or 'N/A'}")
+                    print(f"   확신도: {confidence:.2f}")
+                    print(f"   근거: {reasoning}")
+
+                    # Generate new master ID
+                    new_master_id = self.sku_generator.generate_new_master_id(
+                        case_type,
+                        base_master_id,
+                        existing_master_ids
+                    )
+
+                    print(f"🆔 새 ID_master 생성: {new_master_id}")
+
+                    # Get base SKU data if needed
+                    base_sku = None
+                    if base_master_id:
+                        base_sku = self.db_manager.get_sku_by_master_id(base_master_id)
+
+                    # Generate SKU record
+                    sku_record = self.sku_generator.generate_sku_record(
+                        case_type,
+                        new_master_id,
+                        unmatched_product,
+                        base_sku
+                    )
+
+                    # Insert into SKU_master
+                    if self.db_manager.insert_sku_master(sku_record):
+                        # Update DataFrame
+                        df.loc[idx, "ID_master"] = new_master_id
+
+                        # Add to existing master IDs
+                        existing_master_ids.add(new_master_id)
+
+                        # Add to newly created list
+                        newly_created.append({
+                            'option_id': option_id,
+                            'new_master_id': new_master_id,
+                            'case_type': case_type,
+                            'base_master_id': base_master_id
+                        })
+
+                        # Update mapping for immediate use
+                        self.sku_primary_map[option_id] = new_master_id
+
+                        # Reload SKU list for next iteration
+                        existing_skus = self.session.query(SKU_master).all()
+                        existing_skus_list = [sku.to_dict() for sku in existing_skus]
+
+                except Exception as e:
+                    print(f"❌ GPT 처리 실패: {e}")
+                    continue
+
+            if newly_created:
+                print(f"\n✨ GPT 자동 생성 완료: {len(newly_created)}건")
+                for item in newly_created:
+                    print(f"   옵션 {item['option_id']} → ID_master {item['new_master_id']} (케이스 {item['case_type']})")
+
+        # Final matching statistics
+        final_matched = df["ID_master"].notnull().sum()
+        final_unmatched = df["ID_master"].isnull().sum()
+
+        print(f"\n📊 최종 매칭 결과:")
+        print(f"   성공: {final_matched}건")
+        print(f"   실패: {final_unmatched}건")
+
+        # Rename columns for matched data
+        df_matched = df[df["ID_master"].notnull()].copy()
+        df_matched.rename(columns=COLUMN_MAPPING_2P, inplace=True)
+
+        # Normalize columns
+        df_matched = normalize_numeric_columns(df_matched)
+        df_matched = normalize_ratio_columns(df_matched)
+
+        # Keep only valid columns
+        valid_columns = ["ID_master"] + list(COLUMN_MAPPING_2P.values())
+        df_matched = df_matched[[col for col in df_matched.columns if col in valid_columns]]
+
+        # Normalize date
+        df_matched = normalize_date_column(df_matched)
+
+        # Save to database
+        if not df_matched.empty:
+            df_matched.to_sql(table_name, con=self.engine, if_exists='append', index=False)
+            print(f"🛠 DB 저장 완료 ({len(df_matched)}건): {table_name}")
+        else:
+            print("ℹ️ 저장할 매칭된 데이터가 없습니다.")
+
+        # Save unmatched file
+        save_unmatched_file(df[df["ID_master"].isnull()], filepath)

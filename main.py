@@ -44,8 +44,8 @@ def main():
         db_manager.close()
         sys.exit(1)
 
-    # Initialize file processor
-    processor = FileProcessor(engine, sku_mappings)
+    # Initialize file processor with GPT support
+    processor = FileProcessor(engine, sku_mappings, db_manager=db_manager, session=session)
 
     # Find files to process
     excel_files = glob.glob("*.xlsx")

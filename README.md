@@ -9,6 +9,10 @@
 - **네이버 광고 및 오가닉 데이터 업로드**
 - **카페24 판매 데이터 업로드**
 - **SKU 마스터 매칭** 자동화
+- **🤖 GPT 기반 자동 SKU 생성** (쿠팡 2P 전용)
+  - 매칭 실패 시 GPT가 자동으로 상품 분석
+  - 수량변경, 환불재판매, 신규상품 자동 분류
+  - SKU_master 자동 업데이트
 - **매칭 실패 데이터 추적**
 
 ## 프로젝트 구조
@@ -22,13 +26,16 @@ filedbupload_ecom/
 │   ├── __init__.py
 │   ├── database.py          # DB 연결 및 세션 관리
 │   ├── processors.py        # 파일 처리 로직
-│   └── utils.py             # 유틸리티 함수
+│   ├── utils.py             # 유틸리티 함수
+│   ├── gpt_analyzer.py      # 🤖 GPT 상품 분석기
+│   └── sku_generator.py     # 🤖 SKU 자동 생성기
 ├── models.py                # SQLAlchemy 모델 정의
 ├── main.py                  # 메인 실행 파일
 ├── .env.example             # 환경변수 예시
 ├── .gitignore
 ├── requirements.txt
-└── README.md
+├── README.md
+└── README_GPT.md            # 🤖 GPT 기능 상세 가이드
 ```
 
 ## 설치 방법
@@ -66,18 +73,25 @@ cp .env.example .env
 `.env` 파일 편집:
 
 ```env
+# 데이터베이스 설정
 DB_HOST=your_actual_host
 DB_USER=your_actual_user
 DB_PASSWORD=your_actual_password
 DB_NAME=sales
 DB_PORT=3306
+
+# GPT 자동 매칭 설정 (선택사항 - 쿠팡 2P만 해당)
+OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxxxxxxxxxx
+OPENAI_MODEL=gpt-4o-mini
 ```
+
+**참고**: OpenAI API 키가 없어도 기본 기능은 정상 작동합니다. GPT 자동 SKU 생성 기능만 비활성화됩니다.
 
 ### 5. 모델 파일 준비
 
-`models.py` 파일이 프로젝트 루트에 있어야 합니다. 이 파일에는 다음 모델들이 정의되어야 합니다:
-- `SKU_master`
-- `coupang_1p_auto_created_vender_ID`
+`models.py` 파일이 프로젝트 루트에 이미 준비되어 있습니다.
+- `SKU_master`: 전체 필드가 정의된 완전한 모델
+- 쿠팡 2P GPT 자동 매칭에 필요한 모든 필드 포함
 
 ## 사용 방법
 
@@ -126,6 +140,21 @@ python main.py
 - `sales_report_naver_etc` - 네이버 기타 매출
 - `sales_report_cafe24` - 카페24 판매
 
+## 🤖 GPT 자동 SKU 생성 (쿠팡 2P)
+
+쿠팡 2P 매칭 실패 시 GPT가 자동으로 상품을 분석하여 SKU_master에 추가합니다.
+
+**상세 가이드**: [README_GPT.md](README_GPT.md) 참고
+
+**주요 기능**:
+- 수량변경 자동생성 감지 (예: 500ml → 1L)
+- 환불/재판매 상품 감지
+- 신규 상품 자동 등록
+- ID_master 자동 생성 규칙:
+  - 수량변경: `42-1`, `42-2`, `42-3`...
+  - 환불재판매: `15-A`, `15-B`, `15-C`...
+  - 신규상품: `201`, `202`, `203`...
+
 ## 주의사항
 
 1. **데이터 백업**: 처리 전 원본 데이터를 백업하세요.
@@ -145,7 +174,7 @@ pymysql.err.OperationalError: (2003, "Can't connect to MySQL server")
 
 ### 매핑 실패
 
-→ `SKU_master` 테이블과 `coupang_1p_auto_created_vender_ID` 테이블에 해당 SKU가 존재하는지 확인하세요.
+→ 쿠팡 2P의 경우 GPT가 자동으로 처리합니다. 다른 플랫폼은 `SKU_master` 테이블에 해당 SKU가 존재하는지 확인하세요.
 
 ## 라이선스
 
