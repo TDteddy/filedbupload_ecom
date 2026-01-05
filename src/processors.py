@@ -99,15 +99,6 @@ class FileProcessor:
             report_lines.append(f"   현재 원가: {item['cost']}원 ⚠️ 업데이트 필요")
             report_lines.append("")
 
-        report_lines.append("-" * 70)
-        report_lines.append("📋 SQL 업데이트 쿼리 예시:")
-        report_lines.append("-" * 70)
-        report_lines.append("")
-
-        for item in newly_created:
-            report_lines.append(f"UPDATE SKU_master SET Cost_product_at_SKU_master = [실제원가] WHERE ID_master = '{item['new_master_id']}';")
-
-        report_lines.append("")
         report_lines.append("=" * 70)
         report_lines.append("⚠️ 위 내용을 담당자에게 전달하여 원가 업데이트를 요청해주세요.")
         report_lines.append("=" * 70)
