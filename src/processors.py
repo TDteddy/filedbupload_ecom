@@ -90,6 +90,26 @@ class FileProcessor:
         df_all.to_sql(table_name, con=self.engine, if_exists="append", index=False)
         print(f"🛠 2P 원본 전체 저장 완료 ({len(df_all)}건): {table_name}")
 
+    def process_coupang_2p_all_only(self, filepath, df, compare_column, table_name):
+        """
+        Process Coupang 2P file for all table only (no matching, no GPT).
+        Directly uploads to sales_report_coupang_2p_all without SKU matching.
+
+        Args:
+            filepath: Path to file
+            df: DataFrame
+            compare_column: Column name for comparison (not used, for compatibility)
+            table_name: Target table name (not used, always uses sales_report_coupang_2p_all)
+        """
+        filename = os.path.basename(filepath)
+        print(f"\n📦 쿠팡 2P ALL 전용 처리 시작: {filename}")
+        print(f"ℹ️ SKU 매칭 없이 sales_report_coupang_2p_all에만 업로드합니다")
+
+        # Upload to _all table only (no matching required)
+        self.upload_coupang_2p_all(df.copy())
+
+        print(f"✅ 처리 완료: {filename}")
+
     def process_naver_organic(self, filepath):
         """Process Naver organic Excel file with multiple sheets."""
         filename = os.path.basename(filepath)
@@ -408,6 +428,9 @@ class FileProcessor:
                 self.process_cafe24(filepath, df, compare_column, table_name)
             elif "쿠팡_첫구매광고" in filename:
                 self.process_coupang_firstbuy(filepath, df, compare_column, table_name)
+            elif "쿠팡_2p_all" in filename.lower() or "쿠팡_all" in filename.lower():
+                # NEW: Coupang 2P ALL only (no matching, direct upload)
+                self.process_coupang_2p_all_only(filepath, df, compare_column, table_name)
             elif "쿠팡_2p_전체" in filename.lower():
                 # NEW: Coupang 2P with GPT auto-matching
                 self.process_coupang_2p_with_gpt(filepath, df, compare_column, table_name)

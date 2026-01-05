@@ -108,7 +108,8 @@ python main.py
 파일명에 다음 키워드가 포함되어야 자동으로 인식됩니다:
 
 - `쿠팡_1p_전체` - 쿠팡 1P 매출 데이터
-- `쿠팡_2p_전체` - 쿠팡 2P 매출 데이터
+- `쿠팡_2p_전체` - 쿠팡 2P 매출 데이터 (GPT 자동 매칭 포함)
+- `쿠팡_2p_all` 또는 `쿠팡_all` - 쿠팡 2P 원본 전체 (매칭 없이 sales_report_coupang_2p_all에만 업로드)
 - `쿠팡_매출성장광고` - 쿠팡 매출성장 광고 데이터
 - `쿠팡_첫구매광고` - 쿠팡 첫구매 광고 데이터
 - `네이버_광고_대용량` - 네이버 광고 마스터 데이터
@@ -129,8 +130,10 @@ python main.py
 시스템은 다음 테이블들에 데이터를 저장합니다:
 
 - `sales_report_coupang_1p` - 쿠팡 1P 매출
-- `sales_report_coupang_2p` - 쿠팡 2P 매출
-- `sales_report_coupang_2p_all` - 쿠팡 2P 전체 원본 (매칭 실패 포함)
+- `sales_report_coupang_2p` - 쿠팡 2P 매출 (매칭 성공만)
+- `sales_report_coupang_2p_all` - 쿠팡 2P 전체 원본 (매칭 여부 무관, 모든 데이터)
+  - `쿠팡_2p_전체` 파일: GPT 자동 매칭 + _all 테이블 저장
+  - `쿠팡_2p_all` 또는 `쿠팡_all` 파일: _all 테이블에만 저장 (매칭 스킵)
 - `ad_report_coupang_by_growth` - 쿠팡 매출성장광고
 - `ad_report_coupang_by_firstbuy` - 쿠팡 첫구매광고
 - `ad_ID_daily_update_naver` - 네이버 광고 마스터
