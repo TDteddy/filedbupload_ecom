@@ -100,29 +100,56 @@ class SKUGenerator:
 
     def _generate_new_numeric_id(self, existing_ids):
         """
-        Generate new numeric ID_master.
+        Generate new ID_master (supports formats like S060704101).
 
         Args:
             existing_ids: Set of existing IDs
 
         Returns:
-            str: New numeric ID
+            str: New ID (e.g., "S060704102")
         """
-        # Extract numeric IDs only (ignore IDs with suffixes like "42-1" or "42-A")
-        numeric_ids = []
+        import re
+
+        # Extract base IDs only (ignore IDs with suffixes like "42-1" or "S060704101-A")
+        base_ids = []
+        prefix = None
+
         for id_val in existing_ids:
             id_str = str(id_val)
-            # Only consider pure numeric IDs
-            if id_str.isdigit():
-                numeric_ids.append(int(id_str))
 
-        if numeric_ids:
-            max_id = max(numeric_ids)
-            new_id = max_id + 1
+            # Skip IDs with suffixes (contains '-')
+            if '-' in id_str:
+                continue
+
+            # Check if ID has alphabetic prefix (e.g., S060704101)
+            match = re.match(r'^([A-Za-z])(\d+)$', id_str)
+            if match:
+                if prefix is None:
+                    prefix = match.group(1)  # Store prefix (e.g., 'S')
+                numeric_part = int(match.group(2))
+                base_ids.append(numeric_part)
+            # Pure numeric ID (backward compatibility)
+            elif id_str.isdigit():
+                base_ids.append(int(id_str))
+
+        if base_ids:
+            max_id = max(base_ids)
+            new_numeric = max_id + 1
         else:
-            new_id = 1
+            new_numeric = 1
 
-        return str(new_id)
+        # Return with prefix if found, otherwise pure numeric
+        if prefix:
+            # Preserve leading zeros by matching the length
+            # e.g., if max was 060704101, new should be 060704102
+            num_str = str(new_numeric)
+            if base_ids:
+                max_str = str(max(base_ids))
+                if len(max_str) > len(num_str):
+                    num_str = num_str.zfill(len(max_str))
+            return f"{prefix}{num_str}"
+        else:
+            return str(new_numeric)
 
     def generate_sku_record(self, case_type, new_master_id, unmatched_product, base_sku=None):
         """
