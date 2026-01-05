@@ -83,7 +83,7 @@ class FileProcessor:
         report_lines.append(f"신규 생성 SKU: {len(newly_created)}건")
         report_lines.append("")
         report_lines.append("다음 SKU들이 자동 생성되었으나 원가 정보가 없습니다.")
-        report_lines.append("SKU_master 테이블에서 실제 원가를 업데이트해주세요.")
+        report_lines.append("담당자에게 아래 내용을 전달하여 SKU_master 테이블 원가 업데이트를 요청하세요.")
         report_lines.append("")
         report_lines.append("-" * 70)
         report_lines.append("신규 생성된 SKU 목록:")
@@ -109,7 +109,7 @@ class FileProcessor:
 
         report_lines.append("")
         report_lines.append("=" * 70)
-        report_lines.append("⚠️ 위 SKU들의 원가를 업데이트한 후 담당자에게 보고해주세요.")
+        report_lines.append("⚠️ 위 내용을 담당자에게 전달하여 원가 업데이트를 요청해주세요.")
         report_lines.append("=" * 70)
 
         # Print to console
@@ -124,7 +124,7 @@ class FileProcessor:
             with open(report_filename, 'w', encoding='utf-8') as f:
                 f.write(report_text)
             print(f"\n📄 보고서 저장됨: {report_filename}")
-            print("   → 이 파일을 복사하여 결과 보고에 사용하세요.")
+            print("   → 이 파일을 담당자에게 전달하여 원가 업데이트를 요청하세요.")
         except Exception as e:
             print(f"⚠️ 보고서 파일 저장 실패: {e}")
 
