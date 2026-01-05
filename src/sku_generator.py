@@ -5,6 +5,7 @@ Generates new SKU_master records based on GPT analysis results.
 
 import os
 import json
+import re
 from dotenv import load_dotenv
 from openai import OpenAI
 
@@ -31,6 +32,36 @@ class SKUGenerator:
         else:
             self.client = None
             print("⚠️ OpenAI API key not found. SKU generation will use template-based approach.")
+
+    def _extract_quantity_from_name(self, product_name):
+        """
+        Extract quantity from product name.
+
+        Args:
+            product_name: Product name string
+
+        Returns:
+            int or None: Extracted quantity (e.g., "2병" → 2, "3개입" → 3)
+        """
+        if not product_name:
+            return None
+
+        # Patterns to match: "2병", "3개", "5개입", "10팩" etc.
+        patterns = [
+            r'(\d+)\s*병',
+            r'(\d+)\s*개입',
+            r'(\d+)\s*개',
+            r'(\d+)\s*팩',
+            r'(\d+)\s*입',
+            r'(\d+)\s*구',
+        ]
+
+        for pattern in patterns:
+            match = re.search(pattern, product_name)
+            if match:
+                return int(match.group(1))
+
+        return None
 
     def generate_new_master_id(self, case_type, base_master_id, existing_master_ids):
         """
@@ -178,6 +209,28 @@ class SKUGenerator:
             2: "환불재판매"
         }
 
+        # For case 1, calculate cost based on quantity ratio
+        calculated_cost = None
+        calculated_price = None
+        quantity_ratio_info = ""
+
+        if case_type == 1:
+            base_name = base_sku.get('Name_product_short_at_SKU_master', '')
+            new_name = unmatched_product.get('option_name', '')
+
+            base_qty = self._extract_quantity_from_name(base_name)
+            new_qty = self._extract_quantity_from_name(new_name)
+
+            if base_qty and new_qty and base_qty > 0:
+                ratio = new_qty / base_qty
+                base_cost = base_sku.get('Cost_product_at_SKU_master') or 0
+                base_price = base_sku.get('Price_list_at_SKU_master') or 0
+
+                if base_cost > 0:
+                    calculated_cost = base_cost * ratio
+                    calculated_price = base_price * ratio
+                    quantity_ratio_info = f"\n**개수 비율 계산됨**: {base_qty}개 → {new_qty}개 (비율: {ratio:.2f}배)\n- 계산된 원가: {calculated_cost:.0f}원\n- 계산된 정가: {calculated_price:.0f}원"
+
         prompt = f"""
 ## 작업: SKU_master 레코드 생성
 케이스 타입: {case_type} ({case_description.get(case_type, '기타')})
@@ -197,11 +250,12 @@ class SKUGenerator:
 - 원가: {base_sku.get('Cost_product_at_SKU_master', 'N/A')}
 - 정가: {base_sku.get('Price_list_at_SKU_master', 'N/A')}
 - 카테고리: {base_sku.get('Category_2p_1_coupang_at_SKU_master', 'N/A')}
+{quantity_ratio_info}
 
 ## 요청사항
 위 정보를 바탕으로 새로운 SKU_master 레코드를 생성하세요.
 
-**케이스 1 (개수변경)**: 기초 데이터 대부분 복사, 원가/정가는 개수 비율에 맞게 조정 (같은 패키지이므로 정확히 배수 적용)
+**케이스 1 (개수변경)**: {'원가/정가는 위 계산값 사용' if calculated_cost else '기초 데이터 대부분 복사, 원가/정가는 개수 비율에 맞게 조정'}
 **케이스 2 (환불재판매)**: 기초 데이터 복사, 원가/정가는 할인 적용 (예: 70-80%)
 
 다음 JSON 형식으로 응답하세요:
@@ -209,8 +263,8 @@ class SKUGenerator:
 {{
     "Name_product_short_at_SKU_master": "제품명 (옵션명 기반)",
     "Name_brand_at_SKU_master": "브랜드명",
-    "Cost_product_at_SKU_master": 원가 (숫자),
-    "Price_list_at_SKU_master": 정가 (숫자),
+    "Cost_product_at_SKU_master": {int(calculated_cost) if calculated_cost else '원가 (숫자)'},
+    "Price_list_at_SKU_master": {int(calculated_price) if calculated_price else '정가 (숫자)'},
     "Category_2p_1_coupang_at_SKU_master": "카테고리",
     "Sales_type_coupang_at_SKU_master": "판매방식",
     "reasoning": "필드값 결정 근거"
@@ -237,6 +291,12 @@ class SKUGenerator:
             )
 
             gpt_data = json.loads(response.choices[0].message.content)
+
+            # Override with calculated cost if available (case 1 quantity ratio)
+            if calculated_cost is not None:
+                gpt_data['Cost_product_at_SKU_master'] = int(calculated_cost)
+                gpt_data['Price_list_at_SKU_master'] = int(calculated_price)
+                print(f"💰 개수 비율 계산: {base_qty}개 → {new_qty}개 (×{ratio:.2f}) = 원가 {int(calculated_cost)}원")
 
             # Build complete SKU record
             sku_record = self._build_sku_record_from_gpt(
@@ -328,9 +388,22 @@ class SKUGenerator:
 
             # Adjust price for case 1 (count) or case 2 (refund)
             if case_type == 1:
-                # Keep original price (template doesn't know exact count ratio)
-                record['Cost_product_at_SKU_master'] = cost
-                record['Price_list_at_SKU_master'] = price
+                # Calculate based on quantity ratio
+                base_name = base_sku.get('Name_product_short_at_SKU_master', '')
+                new_name = unmatched_product.get('option_name', '')
+
+                base_qty = self._extract_quantity_from_name(base_name)
+                new_qty = self._extract_quantity_from_name(new_name)
+
+                if base_qty and new_qty and base_qty > 0 and cost > 0:
+                    ratio = new_qty / base_qty
+                    record['Cost_product_at_SKU_master'] = cost * ratio
+                    record['Price_list_at_SKU_master'] = price * ratio
+                    print(f"💰 개수 비율 계산 (템플릿): {base_qty}개 → {new_qty}개 (×{ratio:.2f}) = 원가 {int(cost * ratio)}원")
+                else:
+                    # Fallback: keep original
+                    record['Cost_product_at_SKU_master'] = cost
+                    record['Price_list_at_SKU_master'] = price
             elif case_type == 2:
                 # Apply 20% discount for refund items
                 record['Cost_product_at_SKU_master'] = cost * 0.8
