@@ -176,6 +176,7 @@ class SKUDailyUpdater:
     def _calculate_naver_final_prices(self, target_date):
         """
         Calculate final prices from Naver sales reports.
+        Final price = Payment amount / Payment count
 
         Args:
             target_date: datetime.date
@@ -185,10 +186,28 @@ class SKUDailyUpdater:
         """
         final_prices = {}
 
-        # Query Naver sales report (if exists)
-        # Note: Need to check if Naver sales report table exists
-        # For now, return empty dict
-        # TODO: Add Naver sales report query when table is confirmed
+        # Query Naver sales report
+        query_naver = f"""
+        SELECT
+            sm.ID_master,
+            SUM(sr.Sales_order_14d_at_sales_report_naver_etc) as total_sales,
+            SUM(sr.Count_order_14d_at_sales_report_naver_etc) as total_count
+        FROM sales_report_naver_etc sr
+        INNER JOIN SKU_master sm
+            ON sr.ID_product_at_sales_report_naver_etc = sm.ID_product_naver_at_SKU_master
+        WHERE sr.Date = '{target_date}'
+        GROUP BY sm.ID_master
+        HAVING total_count > 0
+        """
+
+        try:
+            result_naver = self.engine.execute(query_naver)
+            for row in result_naver:
+                master_id, total_sales, total_count = row
+                if total_count > 0 and total_sales is not None:
+                    final_prices[master_id] = float(total_sales) / float(total_count)
+        except Exception as e:
+            print(f"   ⚠️ 네이버 데이터 조회 실패: {e}")
 
         return final_prices
 
