@@ -33,7 +33,7 @@ from src.utils import (
 class FileProcessor:
     """Main file processor for e-commerce data files."""
 
-    def __init__(self, engine, sku_mappings, db_manager=None, session=None):
+    def __init__(self, engine, sku_mappings, db_manager=None, session=None, all_only_mode=False):
         """
         Initialize processor with database engine and SKU mappings.
 
@@ -42,11 +42,13 @@ class FileProcessor:
             sku_mappings: Tuple of (sku_primary_map, sku_by_sku_id, sku_naver_map, sku_cafe24_map, auto_map)
             db_manager: DatabaseManager instance (for SKU updates)
             session: SQLAlchemy session
+            all_only_mode: If True, 쿠팡_2p_전체 files upload to ALL table only (no matching)
         """
         self.engine = engine
         self.sku_primary_map, self.sku_by_sku_id, self.sku_naver_map, self.sku_cafe24_map, self.auto_map = sku_mappings
         self.db_manager = db_manager
         self.session = session
+        self.all_only_mode = all_only_mode
 
         # Initialize GPT analyzer and SKU generator
         try:
@@ -428,12 +430,14 @@ class FileProcessor:
                 self.process_cafe24(filepath, df, compare_column, table_name)
             elif "쿠팡_첫구매광고" in filename:
                 self.process_coupang_firstbuy(filepath, df, compare_column, table_name)
-            elif "쿠팡_2p_all" in filename.lower() or "쿠팡_all" in filename.lower():
-                # NEW: Coupang 2P ALL only (no matching, direct upload)
-                self.process_coupang_2p_all_only(filepath, df, compare_column, table_name)
             elif "쿠팡_2p_전체" in filename.lower():
-                # NEW: Coupang 2P with GPT auto-matching
-                self.process_coupang_2p_with_gpt(filepath, df, compare_column, table_name)
+                # Coupang 2P processing
+                if self.all_only_mode:
+                    # ALL table only (no matching, direct upload)
+                    self.process_coupang_2p_all_only(filepath, df, compare_column, table_name)
+                else:
+                    # GPT auto-matching + ALL table
+                    self.process_coupang_2p_with_gpt(filepath, df, compare_column, table_name)
             else:
                 # Common Coupang processing (1P, Growth Ad)
                 self.process_coupang_common(filepath, df, compare_column, table_name)

@@ -6,6 +6,7 @@ Processes Excel and CSV files from various platforms and uploads to MySQL databa
 
 import glob
 import sys
+import argparse
 from src.database import DatabaseManager
 from src.utils import load_sku_mappings
 from src.processors import FileProcessor
@@ -13,8 +14,16 @@ from src.processors import FileProcessor
 
 def main():
     """Main execution function."""
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='E-commerce Data Upload System')
+    parser.add_argument('--all-only', action='store_true',
+                        help='쿠팡 2P 파일을 ALL 테이블에만 업로드 (매칭 스킵)')
+    args = parser.parse_args()
+
     print("=" * 60)
     print("E-commerce Data Upload System")
+    if args.all_only:
+        print("모드: 쿠팡 2P ALL 전용 (매칭 없음)")
     print("=" * 60)
 
     # Initialize database connection
@@ -45,7 +54,7 @@ def main():
         sys.exit(1)
 
     # Initialize file processor with GPT support
-    processor = FileProcessor(engine, sku_mappings, db_manager=db_manager, session=session)
+    processor = FileProcessor(engine, sku_mappings, db_manager=db_manager, session=session, all_only_mode=args.all_only)
 
     # Find files to process
     excel_files = glob.glob("*.xlsx")

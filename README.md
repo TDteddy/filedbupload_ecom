@@ -100,7 +100,11 @@ OPENAI_MODEL=gpt-4o-mini
 처리할 Excel(`.xlsx`) 또는 CSV(`.csv`) 파일들을 프로젝트 루트 디렉토리에 배치한 후:
 
 ```bash
+# 일반 모드 (SKU 매칭 + GPT 자동 생성)
 python main.py
+
+# 쿠팡 2P ALL 전용 모드 (매칭 없이 sales_report_coupang_2p_all에만 업로드)
+python main.py --all-only
 ```
 
 ### 지원하는 파일 형식
@@ -108,8 +112,9 @@ python main.py
 파일명에 다음 키워드가 포함되어야 자동으로 인식됩니다:
 
 - `쿠팡_1p_전체` - 쿠팡 1P 매출 데이터
-- `쿠팡_2p_전체` - 쿠팡 2P 매출 데이터 (GPT 자동 매칭 포함)
-- `쿠팡_2p_all` 또는 `쿠팡_all` - 쿠팡 2P 원본 전체 (매칭 없이 sales_report_coupang_2p_all에만 업로드)
+- `쿠팡_2p_전체` - 쿠팡 2P 매출 데이터
+  - 일반 모드: GPT 자동 매칭 + ALL 테이블 저장
+  - `--all-only` 모드: ALL 테이블에만 저장 (매칭 스킵)
 - `쿠팡_매출성장광고` - 쿠팡 매출성장 광고 데이터
 - `쿠팡_첫구매광고` - 쿠팡 첫구매 광고 데이터
 - `네이버_광고_대용량` - 네이버 광고 마스터 데이터
@@ -132,8 +137,8 @@ python main.py
 - `sales_report_coupang_1p` - 쿠팡 1P 매출
 - `sales_report_coupang_2p` - 쿠팡 2P 매출 (매칭 성공만)
 - `sales_report_coupang_2p_all` - 쿠팡 2P 전체 원본 (매칭 여부 무관, 모든 데이터)
-  - `쿠팡_2p_전체` 파일: GPT 자동 매칭 + _all 테이블 저장
-  - `쿠팡_2p_all` 또는 `쿠팡_all` 파일: _all 테이블에만 저장 (매칭 스킵)
+  - 일반 모드 (`python main.py`): GPT 자동 매칭 + _all 테이블 저장
+  - ALL 전용 모드 (`python main.py --all-only`): _all 테이블에만 저장
 - `ad_report_coupang_by_growth` - 쿠팡 매출성장광고
 - `ad_report_coupang_by_firstbuy` - 쿠팡 첫구매광고
 - `ad_ID_daily_update_naver` - 네이버 광고 마스터
