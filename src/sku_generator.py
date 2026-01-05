@@ -269,19 +269,19 @@ class SKUGenerator:
         """
         Generate new ID_master based on brand.
 
-        Format: prefix + 6-digit number + A
-        - 닥터시드: D000001A, D000002A, ...
-        - 딸로: T000001A, T000002A, ...
-        - 테르스: S000001A, S000002A, ...
-        - 에이더: ABC000001A (random 3-letter prefix, must not start with D/T/S)
-        - Unknown: S000001A (default to 'S')
+        Format:
+        - 닥터시드: D000001, D000002, ... (prefix + 6-digit number)
+        - 딸로: T000001, T000002, ... (prefix + 6-digit number)
+        - 테르스: S000001, S000002, ... (prefix + 6-digit number)
+        - 에이더: ABC000001A (random 3-letter prefix + 6-digit number + A)
+        - Unknown: S000001 (default to 'S')
 
         Args:
             existing_ids: Set of existing IDs
             brand_name: Brand name to determine prefix
 
         Returns:
-            str: New ID (e.g., "D000001A")
+            str: New ID (e.g., "D000001" or "ABC000001A")
         """
         import re
         import random
@@ -289,9 +289,10 @@ class SKUGenerator:
 
         # Determine prefix based on brand
         target_prefix = self._get_brand_prefix(brand_name) if brand_name else None
+        is_aider = brand_name and '에이더' in brand_name
 
         # For 에이더, generate random 3-letter prefix
-        if brand_name and '에이더' in brand_name:
+        if is_aider:
             # Generate random 3-letter prefix (must not start with D, T, or S)
             reserved_first_letters = {'D', 'T', 'S'}
             while True:
@@ -319,9 +320,11 @@ class SKUGenerator:
         # Extract numeric parts from existing IDs with same prefix
         numeric_parts = []
 
-        # New format: prefix(1 or 3 chars) + 6 digits + A
-        pattern_new_1 = re.compile(r'^([A-Z])(\d{6})A$')
-        pattern_new_3 = re.compile(r'^([A-Z]{3})(\d{6})A$')
+        # New formats:
+        # - Single letter brands (D, T, S): prefix + 6 digits (e.g., D000001)
+        # - 에이더: 3-letter prefix + 6 digits + A (e.g., ABC000001A)
+        pattern_single = re.compile(r'^([A-Z])(\d{6})$')
+        pattern_aider = re.compile(r'^([A-Z]{3})(\d{6})A$')
         # Old format: prefix(1 char) + variable digits (backward compatibility)
         pattern_old = re.compile(r'^([A-Z])(\d+)$')
 
@@ -334,7 +337,8 @@ class SKUGenerator:
 
             # Try new format patterns
             if prefix_length == 1:
-                match = pattern_new_1.match(id_str)
+                # New format: D000001
+                match = pattern_single.match(id_str)
                 if match and match.group(1) == target_prefix:
                     numeric_parts.append(int(match.group(2)))
                     continue
@@ -343,7 +347,8 @@ class SKUGenerator:
                 if match and match.group(1) == target_prefix:
                     numeric_parts.append(int(match.group(2)))
             elif prefix_length == 3:
-                match = pattern_new_3.match(id_str)
+                # 에이더 format: ABC000001A
+                match = pattern_aider.match(id_str)
                 if match and match.group(1) == target_prefix:
                     numeric_parts.append(int(match.group(2)))
 
@@ -355,7 +360,12 @@ class SKUGenerator:
 
         # Format: 6 digits with leading zeros
         new_number_str = str(new_number).zfill(6)
-        new_id = f"{target_prefix}{new_number_str}A"
+
+        # Add 'A' suffix only for 에이더
+        if is_aider:
+            new_id = f"{target_prefix}{new_number_str}A"
+        else:
+            new_id = f"{target_prefix}{new_number_str}"
 
         print(f"🏷️ 브랜드 '{brand_name}' → Prefix '{target_prefix}' → ID: {new_id}")
         return new_id
