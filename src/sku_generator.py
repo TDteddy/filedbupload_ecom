@@ -359,7 +359,7 @@ class SKUGenerator:
 위 정보를 바탕으로 새로운 SKU_master 레코드를 생성하세요.
 
 **케이스 1 (개수변경)**: {'원가/정가는 위 계산값 사용' if calculated_cost else '기초 데이터 대부분 복사, 원가/정가는 개수 비율에 맞게 조정'}
-**케이스 2 (환불재판매)**: 기초 데이터 복사, 원가/정가는 할인 적용 (예: 70-80%)
+**케이스 2 (환불재판매)**: 기초 데이터 복사, 원가/정가는 기초 데이터 그대로 사용 (할인 없음)
 
 다음 JSON 형식으로 응답하세요:
 ```json
@@ -508,9 +508,9 @@ class SKUGenerator:
                     record['Cost_product_at_SKU_master'] = cost
                     record['Price_list_at_SKU_master'] = price
             elif case_type == 2:
-                # Apply 20% discount for refund items
-                record['Cost_product_at_SKU_master'] = cost * 0.8
-                record['Price_list_at_SKU_master'] = price * 0.8
+                # Keep original cost/price for refund items (no discount)
+                record['Cost_product_at_SKU_master'] = cost
+                record['Price_list_at_SKU_master'] = price
 
         else:
             # New product - create minimal record with 0 cost/price
