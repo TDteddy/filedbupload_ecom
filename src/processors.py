@@ -585,9 +585,9 @@ class FileProcessor:
                     print(f"   확신도: {confidence:.2f}")
                     print(f"   근거: {reasoning}")
 
-                    # Validate and correct base_master_id for case 1 (quantity change)
+                    # Validate and correct base_master_id for case 1 (quantity change) and case 2 (refund resale)
                     corrected_base_sku_data = None
-                    if case_type == 1 and base_master_id:
+                    if case_type in [1, 2] and base_master_id:
                         corrected_base_sku_data, was_corrected = self.sku_generator.validate_and_correct_base_sku(
                             base_master_id,
                             existing_skus_list
@@ -609,7 +609,7 @@ class FileProcessor:
                     # Get base SKU data if needed
                     base_sku = None
                     if base_master_id:
-                        # Use already validated data if available (case 1 with correction)
+                        # Use already validated data if available (case 1 or 2 with correction)
                         if corrected_base_sku_data:
                             base_sku = corrected_base_sku_data
                         else:
