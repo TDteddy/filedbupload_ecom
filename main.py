@@ -6,7 +6,6 @@ Processes Excel and CSV files from various platforms and uploads to MySQL databa
 
 import glob
 import sys
-import argparse
 from src.database import DatabaseManager
 from src.utils import load_sku_mappings
 from src.processors import FileProcessor
@@ -15,21 +14,23 @@ from src.sku_daily_updater import SKUDailyUpdater
 
 def main():
     """Main execution function."""
-    # Parse command line arguments
-    parser = argparse.ArgumentParser(description='E-commerce Data Upload System')
-    parser.add_argument('--all-only', action='store_true',
-                        help='쿠팡 2P 파일을 ALL 테이블에만 업로드 (매칭 스킵)')
-    parser.add_argument('--sku-daily-update', action='store_true',
-                        help='SKU Daily Update 실행 (날짜별 가격 업데이트)')
-    args = parser.parse_args()
-
     print("=" * 60)
     print("E-commerce Data Upload System")
-    if args.all_only:
-        print("모드: 쿠팡 2P ALL 전용 (매칭 없음)")
-    if args.sku_daily_update:
-        print("모드: SKU Daily Update")
     print("=" * 60)
+
+    # Display menu
+    print("\n📋 작업 선택:")
+    print("1. 일반 파일 업로드 (쿠팡, 네이버, 카페24 등)")
+    print("2. 쿠팡 2P ALL 전용 업로드 (매칭 스킵)")
+    print("3. SKU Daily Update (날짜별 가격 업데이트)")
+    print("=" * 60)
+
+    # Get user choice
+    choice = input("\n선택 (1/2/3): ").strip()
+
+    if choice not in ['1', '2', '3']:
+        print("❌ 잘못된 선택입니다. 1, 2, 3 중 하나를 입력하세요.")
+        sys.exit(1)
 
     # Initialize database connection
     try:
@@ -47,8 +48,9 @@ def main():
         print("   - DB_NAME")
         sys.exit(1)
 
-    # SKU Daily Update mode
-    if args.sku_daily_update:
+    # Execute based on choice
+    if choice == '3':
+        # SKU Daily Update mode
         print("\n" + "=" * 60)
         print("SKU Daily Update 모드")
         print("=" * 60)
@@ -72,58 +74,71 @@ def main():
 
         sys.exit(0)
 
-    # Load SKU mappings
-    try:
-        sku_mappings = load_sku_mappings(session)
-    except Exception as e:
-        print(f"❌ SKU 매핑 테이블 로딩 실패: {e}")
-        print("\n💡 models.py 파일과 데이터베이스 테이블을 확인하세요:")
-        print("   - SKU_master 테이블")
-        print("   - coupang_1p_auto_created_vender_ID 테이블")
-        db_manager.close()
-        sys.exit(1)
+    else:
+        # File upload mode (1 or 2)
+        all_only_mode = (choice == '2')
 
-    # Initialize file processor with GPT support
-    processor = FileProcessor(engine, sku_mappings, db_manager=db_manager, session=session, all_only_mode=args.all_only)
+        if all_only_mode:
+            print("\n" + "=" * 60)
+            print("모드: 쿠팡 2P ALL 전용 (매칭 없음)")
+            print("=" * 60)
+        else:
+            print("\n" + "=" * 60)
+            print("모드: 일반 파일 업로드")
+            print("=" * 60)
 
-    # Find files to process
-    excel_files = glob.glob("*.xlsx")
-    csv_files = glob.glob("*.csv")
-    all_files = excel_files + csv_files
-
-    if not all_files:
-        print("\n📂 처리할 파일이 없습니다.")
-        print("   현재 디렉토리에 .xlsx 또는 .csv 파일을 배치하세요.")
-        db_manager.close()
-        sys.exit(0)
-
-    print(f"\n📊 발견된 파일: {len(all_files)}개")
-    for f in all_files:
-        print(f"   - {f}")
-
-    # Process each file
-    success_count = 0
-    error_count = 0
-
-    for file in all_files:
+        # Load SKU mappings
         try:
-            processor.process_file(file)
-            success_count += 1
+            sku_mappings = load_sku_mappings(session)
         except Exception as e:
-            print(f"❌ 파일 처리 실패 ({file}): {e}")
-            error_count += 1
+            print(f"❌ SKU 매핑 테이블 로딩 실패: {e}")
+            print("\n💡 models.py 파일과 데이터베이스 테이블을 확인하세요:")
+            print("   - SKU_master 테이블")
+            print("   - coupang_1p_auto_created_vender_ID 테이블")
+            db_manager.close()
+            sys.exit(1)
 
-    # Print summary
-    print("\n" + "=" * 60)
-    print("처리 완료")
-    print("=" * 60)
-    print(f"✅ 성공: {success_count}개")
-    print(f"❌ 실패: {error_count}개")
-    print("=" * 60)
+        # Initialize file processor with GPT support
+        processor = FileProcessor(engine, sku_mappings, db_manager=db_manager, session=session, all_only_mode=all_only_mode)
 
-    # Close database connection
-    db_manager.close()
-    print("\n🔌 데이터베이스 연결 종료")
+        # Find files to process
+        excel_files = glob.glob("*.xlsx")
+        csv_files = glob.glob("*.csv")
+        all_files = excel_files + csv_files
+
+        if not all_files:
+            print("\n📂 처리할 파일이 없습니다.")
+            print("   현재 디렉토리에 .xlsx 또는 .csv 파일을 배치하세요.")
+            db_manager.close()
+            sys.exit(0)
+
+        print(f"\n📊 발견된 파일: {len(all_files)}개")
+        for f in all_files:
+            print(f"   - {f}")
+
+        # Process each file
+        success_count = 0
+        error_count = 0
+
+        for file in all_files:
+            try:
+                processor.process_file(file)
+                success_count += 1
+            except Exception as e:
+                print(f"❌ 파일 처리 실패 ({file}): {e}")
+                error_count += 1
+
+        # Print summary
+        print("\n" + "=" * 60)
+        print("처리 완료")
+        print("=" * 60)
+        print(f"✅ 성공: {success_count}개")
+        print(f"❌ 실패: {error_count}개")
+        print("=" * 60)
+
+        # Close database connection
+        db_manager.close()
+        print("\n🔌 데이터베이스 연결 종료")
 
 
 if __name__ == "__main__":
