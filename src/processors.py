@@ -62,6 +62,72 @@ class FileProcessor:
             self.gpt_analyzer = None
             self.sku_generator = None
 
+    def _generate_cost_update_report(self, newly_created, filename):
+        """
+        Generate cost update report for newly created SKUs.
+
+        Args:
+            newly_created: List of newly created SKU dictionaries
+            filename: Original filename for report naming
+        """
+        from datetime import datetime
+
+        # Build report message
+        report_lines = []
+        report_lines.append("=" * 70)
+        report_lines.append("⚠️  신규 SKU 원가 업데이트 필요")
+        report_lines.append("=" * 70)
+        report_lines.append("")
+        report_lines.append(f"파일: {filename}")
+        report_lines.append(f"처리일시: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        report_lines.append(f"신규 생성 SKU: {len(newly_created)}건")
+        report_lines.append("")
+        report_lines.append("다음 SKU들이 자동 생성되었으나 원가 정보가 없습니다.")
+        report_lines.append("SKU_master 테이블에서 실제 원가를 업데이트해주세요.")
+        report_lines.append("")
+        report_lines.append("-" * 70)
+        report_lines.append("신규 생성된 SKU 목록:")
+        report_lines.append("-" * 70)
+        report_lines.append("")
+
+        for i, item in enumerate(newly_created, 1):
+            report_lines.append(f"{i}. ID: {item['new_master_id']}")
+            report_lines.append(f"   상품명: {item['product_name']}")
+            report_lines.append(f"   분류: {item['case_name']}")
+            if item['base_master_id']:
+                report_lines.append(f"   기반 ID: {item['base_master_id']}")
+            report_lines.append(f"   현재 원가: {item['cost']}원 ⚠️ 업데이트 필요")
+            report_lines.append("")
+
+        report_lines.append("-" * 70)
+        report_lines.append("📋 SQL 업데이트 쿼리 예시:")
+        report_lines.append("-" * 70)
+        report_lines.append("")
+
+        for item in newly_created:
+            report_lines.append(f"UPDATE SKU_master SET Cost_product_at_SKU_master = [실제원가] WHERE ID_master = '{item['new_master_id']}';")
+
+        report_lines.append("")
+        report_lines.append("=" * 70)
+        report_lines.append("⚠️ 위 SKU들의 원가를 업데이트한 후 담당자에게 보고해주세요.")
+        report_lines.append("=" * 70)
+
+        # Print to console
+        report_text = "\n".join(report_lines)
+        print("\n" + report_text)
+
+        # Save to file
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        report_filename = f"원가_업데이트_필요_{timestamp}.txt"
+
+        try:
+            with open(report_filename, 'w', encoding='utf-8') as f:
+                f.write(report_text)
+            print(f"\n📄 보고서 저장됨: {report_filename}")
+            print("   → 이 파일을 복사하여 결과 보고에 사용하세요.")
+        except Exception as e:
+            print(f"⚠️ 보고서 파일 저장 실패: {e}")
+
     def upload_coupang_2p_all(self, df_original, table_name="sales_report_coupang_2p_all"):
         """
         Upload entire Coupang 2P data including unmatched records.
@@ -558,11 +624,14 @@ class FileProcessor:
                         # Add to existing master IDs
                         existing_master_ids.add(new_master_id)
 
-                        # Add to newly created list
+                        # Add to newly created list (for final report)
                         newly_created.append({
                             'option_id': option_id,
                             'new_master_id': new_master_id,
+                            'product_name': sku_record.get('Name_product_short_at_SKU_master', ''),
+                            'cost': sku_record.get('Cost_product_at_SKU_master', 0),
                             'case_type': case_type,
+                            'case_name': case_names.get(case_type, '알수없음'),
                             'base_master_id': base_master_id
                         })
 
@@ -581,6 +650,9 @@ class FileProcessor:
                 print(f"\n✨ GPT 자동 생성 완료: {len(newly_created)}건")
                 for item in newly_created:
                     print(f"   옵션 {item['option_id']} → ID_master {item['new_master_id']} (케이스 {item['case_type']})")
+
+                # Generate cost update report
+                self._generate_cost_update_report(newly_created, filename)
 
         # Final matching statistics
         final_matched = df["ID_master"].notnull().sum()
