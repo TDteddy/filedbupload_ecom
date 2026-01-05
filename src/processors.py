@@ -570,6 +570,7 @@ class FileProcessor:
 
                     case_type = analysis_result['case_type']
                     base_master_id = analysis_result['base_master_id']
+                    brand_name = analysis_result.get('brand_name')
                     confidence = analysis_result['confidence']
                     reasoning = analysis_result['reasoning']
 
@@ -582,6 +583,8 @@ class FileProcessor:
                     print(f"🎯 GPT 분석 결과:")
                     print(f"   케이스: {case_names.get(case_type, '알수없음')}")
                     print(f"   기초 ID: {base_master_id or 'N/A'}")
+                    if case_type == 3 and brand_name:
+                        print(f"   브랜드: {brand_name}")
                     print(f"   확신도: {confidence:.2f}")
                     print(f"   근거: {reasoning}")
 
@@ -601,7 +604,8 @@ class FileProcessor:
                     new_master_id = self.sku_generator.generate_new_master_id(
                         case_type,
                         base_master_id,
-                        existing_master_ids
+                        existing_master_ids,
+                        brand_name=brand_name
                     )
 
                     print(f"🆔 새 ID_master 생성: {new_master_id}")

@@ -33,6 +33,38 @@ class SKUGenerator:
             self.client = None
             print("⚠️ OpenAI API key not found. SKU generation will use template-based approach.")
 
+        # Brand to prefix mapping
+        self.brand_prefix_map = {
+            '닥터시드': 'D',
+            '딸로': 'T',
+            '테르스': 'S',
+            '에이더': None,  # Random 3-letter prefix for 에이더
+        }
+
+    def _get_brand_prefix(self, brand_name):
+        """
+        Get prefix for a brand name.
+
+        Args:
+            brand_name: Brand name string
+
+        Returns:
+            str or None: Prefix (e.g., 'D', 'T', 'S') or None for random prefix
+        """
+        if not brand_name:
+            return None
+
+        # Exact match
+        if brand_name in self.brand_prefix_map:
+            return self.brand_prefix_map[brand_name]
+
+        # Fuzzy match (contains)
+        for brand_key, prefix in self.brand_prefix_map.items():
+            if brand_key in brand_name or brand_name in brand_key:
+                return prefix
+
+        return None
+
     def _extract_quantity_from_name(self, product_name):
         """
         Extract quantity from product name.
@@ -166,7 +198,7 @@ class SKUGenerator:
             print(f"   자동 보정: '{smallest_name}' ({smallest_qty}개) → ID: {smallest_sku.get('ID_master')}")
             return smallest_sku, True
 
-    def generate_new_master_id(self, case_type, base_master_id, existing_master_ids):
+    def generate_new_master_id(self, case_type, base_master_id, existing_master_ids, brand_name=None):
         """
         Generate new ID_master based on case type.
 
@@ -174,6 +206,7 @@ class SKUGenerator:
             case_type: int (1: count(same package), 2: refund, 3: new(incl. package change))
             base_master_id: str or None (base product's ID_master)
             existing_master_ids: set of all existing ID_master values
+            brand_name: str or None (brand name for case 3 to determine prefix)
 
         Returns:
             str: New ID_master
@@ -187,8 +220,8 @@ class SKUGenerator:
             return self._generate_suffix_id(base_master_id, existing_master_ids, numeric=False)
 
         elif case_type == 3:
-            # New product: Generate new numeric ID
-            return self._generate_new_numeric_id(existing_master_ids)
+            # New product: Generate new numeric ID with brand-specific prefix
+            return self._generate_new_numeric_id(existing_master_ids, brand_name)
 
         else:
             raise ValueError(f"Invalid case_type: {case_type}")
@@ -232,21 +265,61 @@ class SKUGenerator:
 
         raise ValueError("Could not generate unique suffix ID")
 
-    def _generate_new_numeric_id(self, existing_ids):
+    def _generate_new_numeric_id(self, existing_ids, brand_name=None):
         """
-        Generate new ID_master (supports formats like S060704101).
+        Generate new ID_master based on brand.
+
+        Format: prefix + 6-digit number + A
+        - 닥터시드: D000001A, D000002A, ...
+        - 딸로: T000001A, T000002A, ...
+        - 테르스: S000001A, S000002A, ...
+        - 에이더: ABC000001A (random 3-letter prefix)
+        - Unknown: S000001A (default to 'S')
 
         Args:
             existing_ids: Set of existing IDs
+            brand_name: Brand name to determine prefix
 
         Returns:
-            str: New ID (e.g., "S060704102")
+            str: New ID (e.g., "D000001A")
         """
         import re
+        import random
+        import string
 
-        # Extract base IDs only (ignore IDs with suffixes like "42-1" or "S060704101-A")
-        base_ids = []
-        prefix = None
+        # Determine prefix based on brand
+        target_prefix = self._get_brand_prefix(brand_name) if brand_name else None
+
+        # For 에이더, generate random 3-letter prefix
+        if brand_name and '에이더' in brand_name:
+            # Generate random 3-letter prefix
+            while True:
+                target_prefix = ''.join(random.choices(string.ascii_uppercase, k=3))
+                # Check if this prefix already exists
+                prefix_exists = any(
+                    str(id_val).startswith(target_prefix)
+                    for id_val in existing_ids
+                    if not '-' in str(id_val)
+                )
+                if not prefix_exists:
+                    break
+            prefix_length = 3
+        elif target_prefix:
+            prefix_length = 1
+        else:
+            # Default: use 'S' if no brand match
+            target_prefix = 'S'
+            prefix_length = 1
+            print(f"⚠️ 브랜드 '{brand_name}' 매칭 실패, 기본 prefix 'S' 사용")
+
+        # Extract numeric parts from existing IDs with same prefix
+        numeric_parts = []
+
+        # New format: prefix(1 or 3 chars) + 6 digits + A
+        pattern_new_1 = re.compile(r'^([A-Z])(\d{6})A$')
+        pattern_new_3 = re.compile(r'^([A-Z]{3})(\d{6})A$')
+        # Old format: prefix(1 char) + variable digits (backward compatibility)
+        pattern_old = re.compile(r'^([A-Z])(\d+)$')
 
         for id_val in existing_ids:
             id_str = str(id_val)
@@ -255,35 +328,33 @@ class SKUGenerator:
             if '-' in id_str:
                 continue
 
-            # Check if ID has alphabetic prefix (e.g., S060704101)
-            match = re.match(r'^([A-Za-z])(\d+)$', id_str)
-            if match:
-                if prefix is None:
-                    prefix = match.group(1)  # Store prefix (e.g., 'S')
-                numeric_part = int(match.group(2))
-                base_ids.append(numeric_part)
-            # Pure numeric ID (backward compatibility)
-            elif id_str.isdigit():
-                base_ids.append(int(id_str))
+            # Try new format patterns
+            if prefix_length == 1:
+                match = pattern_new_1.match(id_str)
+                if match and match.group(1) == target_prefix:
+                    numeric_parts.append(int(match.group(2)))
+                    continue
+                # Backward compatibility: old format
+                match = pattern_old.match(id_str)
+                if match and match.group(1) == target_prefix:
+                    numeric_parts.append(int(match.group(2)))
+            elif prefix_length == 3:
+                match = pattern_new_3.match(id_str)
+                if match and match.group(1) == target_prefix:
+                    numeric_parts.append(int(match.group(2)))
 
-        if base_ids:
-            max_id = max(base_ids)
-            new_numeric = max_id + 1
+        # Generate new number
+        if numeric_parts:
+            new_number = max(numeric_parts) + 1
         else:
-            new_numeric = 1
+            new_number = 1
 
-        # Return with prefix if found, otherwise pure numeric
-        if prefix:
-            # Preserve leading zeros by matching the length
-            # e.g., if max was 060704101, new should be 060704102
-            num_str = str(new_numeric)
-            if base_ids:
-                max_str = str(max(base_ids))
-                if len(max_str) > len(num_str):
-                    num_str = num_str.zfill(len(max_str))
-            return f"{prefix}{num_str}"
-        else:
-            return str(new_numeric)
+        # Format: 6 digits with leading zeros
+        new_number_str = str(new_number).zfill(6)
+        new_id = f"{target_prefix}{new_number_str}A"
+
+        print(f"🏷️ 브랜드 '{brand_name}' → Prefix '{target_prefix}' → ID: {new_id}")
+        return new_id
 
     def generate_sku_record(self, case_type, new_master_id, unmatched_product, base_sku=None):
         """

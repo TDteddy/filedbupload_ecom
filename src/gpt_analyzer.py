@@ -150,16 +150,21 @@ class CoupangProductAnalyzer:
 {
     "case_type": 1 또는 2 또는 3,
     "base_master_id": "기초가 되는 ID_master (케이스 3이면 null)",
+    "brand_name": "브랜드명 (케이스 3일 때 필수, 옵션명이나 기존 SKU에서 추출)",
     "confidence": 0.0~1.0 사이의 확신도,
     "reasoning": "판단 근거를 한글로 상세히 설명"
 }
 ```
 
+⚠️ **중요**: 케이스 3(신규상품)일 때는 반드시 "brand_name" 필드에 브랜드명을 추출하세요!
+브랜드명은 옵션명, 제품명, 또는 유사 제품의 브랜드에서 추출하면 됩니다.
+예: "닥터시드", "딸로", "테르스", "에이더" 등
+
 예시:
-- 개수변경: {"case_type": 1, "base_master_id": "42", "confidence": 0.95, "reasoning": "기존 '500ml 1병' 제품과 브랜드/카테고리 동일하며 같은 패키지의 '500ml 2병'으로 개수만 2배 증가"}
-- 환불재판매: {"case_type": 2, "base_master_id": "42", "confidence": 0.9, "reasoning": "옵션명에 '리퍼' 키워드 포함, 기존 제품과 동일"}
-- 신규상품(브랜드): {"case_type": 3, "base_master_id": null, "confidence": 0.85, "reasoning": "기존 DB에 해당 브랜드나 유사 제품 없음"}
-- 신규상품(용량변경): {"case_type": 3, "base_master_id": null, "confidence": 0.90, "reasoning": "기존 '500ml' 제품이 있으나 신규는 '1L'로 패키지 용량이 변경되어 신규 상품으로 분류"}
+- 개수변경: {"case_type": 1, "base_master_id": "42", "brand_name": null, "confidence": 0.95, "reasoning": "기존 '500ml 1병' 제품과 브랜드/카테고리 동일하며 같은 패키지의 '500ml 2병'으로 개수만 2배 증가"}
+- 환불재판매: {"case_type": 2, "base_master_id": "42", "brand_name": null, "confidence": 0.9, "reasoning": "옵션명에 '리퍼' 키워드 포함, 기존 제품과 동일"}
+- 신규상품(브랜드): {"case_type": 3, "base_master_id": null, "brand_name": "닥터시드", "confidence": 0.85, "reasoning": "기존 DB에 해당 브랜드나 유사 제품 없음"}
+- 신규상품(용량변경): {"case_type": 3, "base_master_id": null, "brand_name": "테르스", "confidence": 0.90, "reasoning": "기존 '500ml' 제품이 있으나 신규는 '1L'로 패키지 용량이 변경되어 신규 상품으로 분류"}
 """
 
         return prompt
@@ -229,5 +234,13 @@ class CoupangProductAnalyzer:
             result['base_master_id'] = None
         elif result['case_type'] == 3:
             result['base_master_id'] = None  # New products don't have base
+
+        # Handle brand_name (required for case 3)
+        if 'brand_name' not in result:
+            result['brand_name'] = None
+
+        # Warn if case 3 but no brand_name
+        if result['case_type'] == 3 and not result['brand_name']:
+            print(f"⚠️ 케이스 3(신규상품)이지만 브랜드명 없음 - 기본 prefix 사용됨")
 
         return result
