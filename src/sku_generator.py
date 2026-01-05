@@ -273,7 +273,7 @@ class SKUGenerator:
         - 닥터시드: D000001A, D000002A, ...
         - 딸로: T000001A, T000002A, ...
         - 테르스: S000001A, S000002A, ...
-        - 에이더: ABC000001A (random 3-letter prefix)
+        - 에이더: ABC000001A (random 3-letter prefix, must not start with D/T/S)
         - Unknown: S000001A (default to 'S')
 
         Args:
@@ -292,9 +292,13 @@ class SKUGenerator:
 
         # For 에이더, generate random 3-letter prefix
         if brand_name and '에이더' in brand_name:
-            # Generate random 3-letter prefix
+            # Generate random 3-letter prefix (must not start with D, T, or S)
+            reserved_first_letters = {'D', 'T', 'S'}
             while True:
                 target_prefix = ''.join(random.choices(string.ascii_uppercase, k=3))
+                # Check if first letter is reserved
+                if target_prefix[0] in reserved_first_letters:
+                    continue
                 # Check if this prefix already exists
                 prefix_exists = any(
                     str(id_val).startswith(target_prefix)
