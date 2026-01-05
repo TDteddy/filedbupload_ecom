@@ -585,6 +585,18 @@ class FileProcessor:
                     print(f"   확신도: {confidence:.2f}")
                     print(f"   근거: {reasoning}")
 
+                    # Validate and correct base_master_id for case 1 (quantity change)
+                    corrected_base_sku_data = None
+                    if case_type == 1 and base_master_id:
+                        corrected_base_sku_data, was_corrected = self.sku_generator.validate_and_correct_base_sku(
+                            base_master_id,
+                            existing_skus_list
+                        )
+                        if was_corrected and corrected_base_sku_data:
+                            # Update base_master_id with the corrected one
+                            base_master_id = corrected_base_sku_data.get('ID_master')
+                            print(f"   ➡️ 보정된 기초 ID: {base_master_id}")
+
                     # Generate new master ID
                     new_master_id = self.sku_generator.generate_new_master_id(
                         case_type,
@@ -597,7 +609,11 @@ class FileProcessor:
                     # Get base SKU data if needed
                     base_sku = None
                     if base_master_id:
-                        base_sku = self.db_manager.get_sku_by_master_id(base_master_id)
+                        # Use already validated data if available (case 1 with correction)
+                        if corrected_base_sku_data:
+                            base_sku = corrected_base_sku_data
+                        else:
+                            base_sku = self.db_manager.get_sku_by_master_id(base_master_id)
 
                     # Generate SKU record
                     sku_record = self.sku_generator.generate_sku_record(

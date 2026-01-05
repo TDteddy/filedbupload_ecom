@@ -63,6 +63,109 @@ class SKUGenerator:
 
         return None
 
+    def validate_and_correct_base_sku(self, selected_base_id, all_skus):
+        """
+        Validate if the selected base SKU has the smallest quantity.
+        If not, find and return the SKU with the smallest quantity.
+
+        Args:
+            selected_base_id: str - ID_master of the base SKU selected by GPT
+            all_skus: list - List of all existing SKU_master records
+
+        Returns:
+            tuple: (corrected_base_sku_dict, was_corrected: bool)
+        """
+        from models import SKU_master
+
+        # Find the selected base SKU
+        selected_base = None
+        for sku in all_skus:
+            if isinstance(sku, dict):
+                if sku.get('ID_master') == selected_base_id:
+                    selected_base = sku
+                    break
+            elif hasattr(sku, 'ID_master'):
+                if sku.ID_master == selected_base_id:
+                    # Convert SQLAlchemy object to dict
+                    selected_base = {col.name: getattr(sku, col.name) for col in sku.__table__.columns}
+                    break
+
+        if not selected_base:
+            print(f"⚠️ 선택된 base_master_id '{selected_base_id}'를 찾을 수 없습니다.")
+            return None, False
+
+        # Extract base product info for similarity comparison
+        base_brand = selected_base.get('Name_brand_at_SKU_master', '')
+        base_category = selected_base.get('Category_2p_1_coupang_at_SKU_master', '')
+        base_product_line = selected_base.get('Product_line_at_SKU_master', '')
+
+        # Find all similar SKUs (same brand, category, or product line)
+        similar_skus = []
+        for sku in all_skus:
+            if isinstance(sku, dict):
+                sku_dict = sku
+            elif hasattr(sku, 'ID_master'):
+                sku_dict = {col.name: getattr(sku, col.name) for col in sku.__table__.columns}
+            else:
+                continue
+
+            # Skip if ID has suffix (e.g., "42-1", "42-A") - these are variations
+            sku_id = str(sku_dict.get('ID_master', ''))
+            if '-' in sku_id:
+                continue
+
+            # Check similarity
+            sku_brand = sku_dict.get('Name_brand_at_SKU_master', '')
+            sku_category = sku_dict.get('Category_2p_1_coupang_at_SKU_master', '')
+            sku_product_line = sku_dict.get('Product_line_at_SKU_master', '')
+
+            is_similar = False
+            if base_brand and sku_brand and base_brand == sku_brand:
+                is_similar = True
+            if base_category and sku_category and base_category == sku_category:
+                is_similar = True
+            if base_product_line and sku_product_line and base_product_line == sku_product_line:
+                is_similar = True
+
+            if is_similar:
+                similar_skus.append(sku_dict)
+
+        if not similar_skus:
+            # No similar SKUs found, use the selected one
+            return selected_base, False
+
+        # Extract quantities from all similar SKUs
+        sku_quantities = []
+        for sku in similar_skus:
+            product_name = sku.get('Name_product_short_at_SKU_master', '')
+            qty = self._extract_quantity_from_name(product_name)
+            if qty is not None:
+                sku_quantities.append((sku, qty))
+
+        if not sku_quantities:
+            # No quantities extracted, use the selected one
+            return selected_base, False
+
+        # Find the SKU with the smallest quantity
+        sku_quantities.sort(key=lambda x: x[1])  # Sort by quantity
+        smallest_sku, smallest_qty = sku_quantities[0]
+
+        # Check if the selected base is already the smallest
+        selected_base_name = selected_base.get('Name_product_short_at_SKU_master', '')
+        selected_base_qty = self._extract_quantity_from_name(selected_base_name)
+
+        if selected_base.get('ID_master') == smallest_sku.get('ID_master'):
+            # Already optimal
+            print(f"✅ Base SKU 검증: '{selected_base_name}' ({selected_base_qty}개) - 이미 최소 개수 단위")
+            return selected_base, False
+        else:
+            # Need correction
+            smallest_name = smallest_sku.get('Name_product_short_at_SKU_master', '')
+            print(f"🔄 Base SKU 자동 보정:")
+            print(f"   GPT 선택: '{selected_base_name}' ({selected_base_qty}개) → ID: {selected_base.get('ID_master')}")
+            print(f"   자동 보정: '{smallest_name}' ({smallest_qty}개) → ID: {smallest_sku.get('ID_master')}")
+            return smallest_sku, True
+
     def generate_new_master_id(self, case_type, base_master_id, existing_master_ids):
         """
         Generate new ID_master based on case type.
