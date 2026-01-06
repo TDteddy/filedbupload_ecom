@@ -17,6 +17,7 @@ a = Analysis(
         'openpyxl',
         'openai',
         'urllib.parse',
+        'cryptography',
     ],
     hookspath=[],
     hooksconfig={},
