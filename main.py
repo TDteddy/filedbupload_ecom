@@ -94,7 +94,6 @@ def main():
             print(f"❌ SKU 매핑 테이블 로딩 실패: {e}")
             print("\n💡 models.py 파일과 데이터베이스 테이블을 확인하세요:")
             print("   - SKU_master 테이블")
-            print("   - coupang_1p_auto_created_vender_ID 테이블")
             db_manager.close()
             sys.exit(1)
 

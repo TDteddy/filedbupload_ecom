@@ -194,11 +194,11 @@ def load_sku_mappings(session):
         session: SQLAlchemy session
 
     Returns:
-        tuple: (sku_primary_map, sku_by_sku_id, sku_naver_map, sku_cafe24_map, auto_map)
+        tuple: (sku_primary_map, sku_by_sku_id, sku_naver_map, sku_cafe24_map)
     """
-    from models import SKU_master, coupang_1p_auto_created_vender_ID
+    from models import SKU_master
 
-    print("🔄 SKU_master & 보조 테이블 불러오는 중...")
+    print("🔄 SKU_master 테이블 불러오는 중...")
 
     # Load all SKU master records
     sku_all = session.query(SKU_master).all()
@@ -230,24 +230,9 @@ def load_sku_mappings(session):
     sku_by_sku_id = {k.strip(): v for k, v in sku_by_sku_id.items()}
     sku_primary_map = {k.strip(): v for k, v in sku_primary_map.items()}
 
-    # Load auto-created vendor IDs (optional legacy table)
-    auto_map = {}
-    try:
-        auto_created = session.query(coupang_1p_auto_created_vender_ID).all()
-        auto_map = {
-            str(a.ID_option_vendor_coupang_at_coupang_1p_auto_created_vender_ID):
-            str(a.ID_product_sku_coupang_at_coupang_1p_auto_created_vender_ID)
-            for a in auto_created
-        }
-        if auto_map:
-            print(f"   ℹ️  Auto-created vendor ID 매핑 {len(auto_map)}개 로드됨")
-    except Exception as e:
-        print(f"   ⚠️  Auto-created vendor ID 테이블 없음 (선택사항, 무시해도 됨)")
-        auto_map = {}
-
     print("✅ 매핑 테이블 준비 완료")
 
-    return sku_primary_map, sku_by_sku_id, sku_naver_map, sku_cafe24_map, auto_map
+    return sku_primary_map, sku_by_sku_id, sku_naver_map, sku_cafe24_map
 
 
 def read_file(filepath):

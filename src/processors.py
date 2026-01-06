@@ -39,13 +39,13 @@ class FileProcessor:
 
         Args:
             engine: SQLAlchemy engine
-            sku_mappings: Tuple of (sku_primary_map, sku_by_sku_id, sku_naver_map, sku_cafe24_map, auto_map)
+            sku_mappings: Tuple of (sku_primary_map, sku_by_sku_id, sku_naver_map, sku_cafe24_map)
             db_manager: DatabaseManager instance (for SKU updates)
             session: SQLAlchemy session
             all_only_mode: If True, 쿠팡_2p_전체 files upload to ALL table only (no matching)
         """
         self.engine = engine
-        self.sku_primary_map, self.sku_by_sku_id, self.sku_naver_map, self.sku_cafe24_map, self.auto_map = sku_mappings
+        self.sku_primary_map, self.sku_by_sku_id, self.sku_naver_map, self.sku_cafe24_map = sku_mappings
         self.db_manager = db_manager
         self.session = session
         self.all_only_mode = all_only_mode
@@ -393,15 +393,6 @@ class FileProcessor:
         for value in df[compare_column]:
             value_str = str(value).strip()
             id_master = self.sku_primary_map.get(str(value_str))
-
-            if not id_master:
-                # Try auto-created vendor ID mapping
-                sku_id = self.auto_map.get(str(value_str))
-                if sku_id:
-                    id_master = self.sku_by_sku_id.get(str(sku_id))
-                    if id_master:
-                        print(f"✅ 최종 매핑 성공: 옵션ID {value_str} → SKU ID {sku_id} → ID_master {id_master}")
-
             matched_ids.append(id_master)
 
         # Add ID_master column

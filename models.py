@@ -123,24 +123,6 @@ class SKU_master(Base):
         }
 
 
-class coupang_1p_auto_created_vender_ID(Base):
-    """
-    Coupang 1P auto-created vendor ID mapping table.
-    Maps auto-created vendor option IDs to SKU IDs for legacy data.
-
-    Note: This table is used for backward compatibility with existing data.
-    New SKU creation is handled by GPT analysis.
-    """
-    __tablename__ = 'coupang_1p_auto_created_vender_ID'
-
-    Index = Column(Integer, primary_key=True, autoincrement=True)
-    ID_option_vendor_coupang_at_coupang_1p_auto_created_vender_ID = Column(String(255), index=True)
-    ID_product_sku_coupang_at_coupang_1p_auto_created_vender_ID = Column(String(255), index=True)
-
-    def __repr__(self):
-        return f"<coupang_1p_auto_created_vender_ID(Index={self.Index})>"
-
-
 class SKU_daily_update(Base):
     """
     SKU Daily Update table - daily price tracking across platforms.
