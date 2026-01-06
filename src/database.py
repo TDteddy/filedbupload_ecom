@@ -4,9 +4,9 @@ Handles MySQL connection using SQLAlchemy.
 """
 
 import os
-from urllib.parse import quote_plus
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
+from sqlalchemy.engine import URL
 from sqlalchemy.orm import sessionmaker
 
 # Load environment variables
@@ -20,9 +20,9 @@ class DatabaseManager:
         """Initialize database connection parameters from environment variables."""
         self.host = os.getenv("DB_HOST")
         self.user = os.getenv("DB_USER")
-        self.password = quote_plus(os.getenv("DB_PASSWORD", ""))
+        self.password = os.getenv("DB_PASSWORD", "")
         self.database = os.getenv("DB_NAME")
-        self.port = os.getenv("DB_PORT", "3306")
+        self.port = int(os.getenv("DB_PORT", "3306"))
 
         # Validate required environment variables
         if not all([self.host, self.user, self.database]):
@@ -31,11 +31,18 @@ class DatabaseManager:
                 "Please check your .env file and ensure DB_HOST, DB_USER, and DB_NAME are set."
             )
 
-        # Create database URL
-        self.database_url = f"mysql+pymysql://{self.user}:{self.password}@{self.host}:{self.port}/{self.database}"
+        # Create database URL using URL.create() - automatically handles special characters
+        database_url = URL.create(
+            drivername="mysql+pymysql",
+            username=self.user,
+            password=self.password,
+            host=self.host,
+            port=self.port,
+            database=self.database,
+        )
 
         # Create engine and session
-        self.engine = create_engine(self.database_url)
+        self.engine = create_engine(database_url)
         Session = sessionmaker(bind=self.engine)
         self.session = Session()
 
