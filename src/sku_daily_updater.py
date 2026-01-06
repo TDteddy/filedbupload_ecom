@@ -92,18 +92,22 @@ class SKUDailyUpdater:
             if naver_price is None and master_id in previous_day_data:
                 naver_price = previous_day_data[master_id].get('Price_final_naver_at_SKU_daily_update')
 
+            # Convert float to int for DB (Integer type)
+            coupang_price_int = int(round(coupang_price)) if coupang_price is not None else None
+            naver_price_int = int(round(naver_price)) if naver_price is not None else None
+
             if existing_record:
                 # Update existing record
-                existing_record.Price_final_coupang_at_SKU_daily_update = coupang_price
-                existing_record.Price_final_naver_at_SKU_daily_update = naver_price
+                existing_record.Price_final_coupang_at_SKU_daily_update = coupang_price_int
+                existing_record.Price_final_naver_at_SKU_daily_update = naver_price_int
                 updated_count += 1
             else:
                 # Create new record
                 new_record = SKU_daily_update(
                     ID_master=master_id,
                     Date=target_date,
-                    Price_final_coupang_at_SKU_daily_update=coupang_price,
-                    Price_final_naver_at_SKU_daily_update=naver_price
+                    Price_final_coupang_at_SKU_daily_update=coupang_price_int,
+                    Price_final_naver_at_SKU_daily_update=naver_price_int
                 )
                 self.session.add(new_record)
                 created_count += 1
@@ -186,16 +190,16 @@ class SKUDailyUpdater:
         """
         final_prices = {}
 
-        # Query Naver sales report
+        # Query Naver organic purchase report
         query_naver = f"""
         SELECT
             sm.ID_master,
-            SUM(sr.Sales_order_14d_at_sales_report_naver_etc) as total_sales,
-            SUM(sr.Count_order_14d_at_sales_report_naver_etc) as total_count
-        FROM sales_report_naver_etc sr
+            SUM(kr.Sales_order_14d_at_keyword_purchase_report_naver_organic) as total_sales,
+            SUM(kr.Count_order_14d_at_keyword_purchase_report_naver_organic) as total_count
+        FROM keyword_purchase_report_naver_organic kr
         INNER JOIN SKU_master sm
-            ON sr.ID_product_at_sales_report_naver_etc = sm.ID_product_naver_at_SKU_master
-        WHERE sr.Date = '{target_date}'
+            ON kr.ID_product_at_keyword_purchase_report_naver_organic = sm.ID_product_naver_at_SKU_master
+        WHERE kr.Date = '{target_date}'
         GROUP BY sm.ID_master
         HAVING total_count > 0
         """

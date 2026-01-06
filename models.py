@@ -132,28 +132,28 @@ class SKU_daily_update(Base):
     SKU Daily Update table - daily price tracking across platforms.
     Stores final prices calculated from sales data for each SKU per day.
     """
-    __tablename__ = 'sku_daily_update'
+    __tablename__ = 'SKU_daily_update'
 
     # Composite primary key
     Index = Column(Integer, primary_key=True, autoincrement=True)
-    ID_master = Column(String(50), nullable=False, index=True)
+    ID_master = Column(String(255), nullable=False, index=True)
     Date = Column(Date, nullable=False, index=True)
 
     # Naver prices
-    Price_display_naver_at_SKU_daily_update = Column(DECIMAL(15, 2))
-    Price_final_naver_at_SKU_daily_update = Column(DECIMAL(15, 2))
-    Price_discount_naver_at_SKU_daily_update = Column(DECIMAL(15, 2))
-    Name_product_display_naver_at_SKU_daily_update = Column(String(500))
-    Cost_discount_coupon_naver_at_SKU_daily_update = Column(DECIMAL(15, 2))
+    Price_display_naver_at_SKU_daily_update = Column(Integer)
+    Price_final_naver_at_SKU_daily_update = Column(Integer)
+    Price_discount_naver_at_SKU_daily_update = Column(Integer)
+    Name_product_display_naver_at_SKU_daily_update = Column(String(255))
+    Cost_discount_coupon_naver_at_SKU_daily_update = Column(Integer)
 
     # Coupang prices
-    Price_display_coupang_at_SKU_daily_update = Column(DECIMAL(15, 2))
-    Price_final_coupang_at_SKU_daily_update = Column(DECIMAL(15, 2))
-    Price_supply_1p_coupang_at_SKU_daily_update = Column(DECIMAL(15, 2))
-    Price_discount_coupang_at_SKU_daily_update = Column(DECIMAL(15, 2))
-    Name_product_display_coupang_at_SKU_daily_update = Column(String(500))
-    Cost_incentive_1p_coupang_at_SKU_daily_update = Column(DECIMAL(15, 2))
-    Cost_DA_1P_at_SKU_daily_update = Column(DECIMAL(15, 2))
+    Price_display_coupang_at_SKU_daily_update = Column(Integer)
+    Price_final_coupang_at_SKU_daily_update = Column(Integer)
+    Price_supply_1p_coupang_at_SKU_daily_update = Column(Integer)
+    Price_discount_coupang_at_SKU_daily_update = Column(Integer)
+    Name_product_display_coupang_at_SKU_daily_update = Column(String(255))
+    Cost_incentive_1p_coupang_at_SKU_daily_update = Column(Integer)
+    Cost_DA_1P_at_SKU_daily_update = Column(Integer)
 
     def __repr__(self):
         return f"<SKU_daily_update(ID={self.ID_master}, Date={self.Date})>"
