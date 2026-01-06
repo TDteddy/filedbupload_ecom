@@ -4,13 +4,30 @@ Handles MySQL connection using SQLAlchemy.
 """
 
 import os
+import sys
+from pathlib import Path
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.engine import URL
 from sqlalchemy.orm import sessionmaker
 
-# Load environment variables
-load_dotenv()
+# Load environment variables - handle PyInstaller bundled app
+if getattr(sys, 'frozen', False):
+    # Running as PyInstaller bundle
+    application_path = Path(sys.executable).parent
+else:
+    # Running as script
+    application_path = Path(__file__).parent.parent
+
+# Try to load .env from multiple locations
+env_path = application_path / '.env'
+if env_path.exists():
+    load_dotenv(dotenv_path=env_path)
+    print(f"✅ .env 파일 로드: {env_path}")
+else:
+    # Fallback to current directory
+    load_dotenv()
+    print(f"⚠️  .env 파일을 찾을 수 없음, 환경 변수 사용 시도")
 
 
 class DatabaseManager:
@@ -23,6 +40,9 @@ class DatabaseManager:
         self.password = os.getenv("DB_PASSWORD", "")
         self.database = os.getenv("DB_NAME")
         self.port = int(os.getenv("DB_PORT", "3306"))
+
+        # Debug: Print connection info (without password)
+        print(f"🔌 DB 연결 시도: {self.user}@{self.host}:{self.port}/{self.database}")
 
         # Validate required environment variables
         if not all([self.host, self.user, self.database]):
