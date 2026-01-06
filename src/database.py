@@ -43,6 +43,9 @@ class DatabaseManager:
 
         # Debug: Print connection info (without password)
         print(f"🔌 DB 연결 시도: {self.user}@{self.host}:{self.port}/{self.database}")
+        print(f"   비밀번호 길이: {len(self.password)} 문자")
+        if self.password and self.password != os.getenv("DB_PASSWORD", ""):
+            print(f"   ⚠️  비밀번호가 변경되었습니다 (URL 인코딩)")
 
         # Validate required environment variables
         if not all([self.host, self.user, self.database]):
