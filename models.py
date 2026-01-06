@@ -157,3 +157,29 @@ class SKU_daily_update(Base):
 
     def __repr__(self):
         return f"<SKU_daily_update(ID={self.ID_master}, Date={self.Date})>"
+
+
+class sales_report_naver_etc(Base):
+    """
+    Naver sales report table - ETC channel sales data.
+    Contains 14-day sales and order count data for Naver products.
+    """
+    __tablename__ = 'sales_report_naver_etc'
+
+    Index = Column(Integer, primary_key=True, autoincrement=True)
+    ID_master = Column(String(255))
+    Date = Column(Date)
+    Category_1_naver_at_sales_report_naver_etc = Column(String(255))
+    Category_2_naver_at_sales_report_naver_etc = Column(String(255))
+    Category_3_naver_at_sales_report_naver_etc = Column(String(255))
+    Category_4_naver_at_sales_report_naver_etc = Column(String(255))
+    Name_product_at_sales_report_naver_etc = Column(String(255))
+    ID_product_at_sales_report_naver_etc = Column(String(255))
+    Channel_group_at_sales_report_naver_etc = Column(String(255))
+    Channel_name_at_sales_report_naver_etc = Column(String(255))
+    Channel_detail_at_sales_report_naver_etc = Column(String(255))
+    Count_order_14d_at_sales_report_naver_etc = Column(Integer)
+    Sales_order_14d_at_sales_report_naver_etc = Column(Integer)
+
+    def __repr__(self):
+        return f"<sales_report_naver_etc(ID={self.ID_master}, Date={self.Date})>"

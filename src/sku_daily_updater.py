@@ -180,7 +180,7 @@ class SKUDailyUpdater:
     def _calculate_naver_final_prices(self, target_date):
         """
         Calculate final prices from Naver sales reports.
-        Final price = Payment amount / Payment count
+        Final price = Sales amount / Order count
 
         Args:
             target_date: datetime.date
@@ -190,17 +190,15 @@ class SKUDailyUpdater:
         """
         final_prices = {}
 
-        # Query Naver organic purchase report
+        # Query Naver sales report (sales_report_naver_etc)
         query_naver = f"""
         SELECT
-            sm.ID_master,
-            SUM(kr.Sales_order_14d_at_keyword_purchase_report_naver_organic) as total_sales,
-            SUM(kr.Count_order_14d_at_keyword_purchase_report_naver_organic) as total_count
-        FROM keyword_purchase_report_naver_organic kr
-        INNER JOIN SKU_master sm
-            ON kr.ID_product_at_keyword_purchase_report_naver_organic = sm.ID_product_naver_at_SKU_master
-        WHERE kr.Date = '{target_date}'
-        GROUP BY sm.ID_master
+            ID_master,
+            SUM(Sales_order_14d_at_sales_report_naver_etc) as total_sales,
+            SUM(Count_order_14d_at_sales_report_naver_etc) as total_count
+        FROM sales_report_naver_etc
+        WHERE Date = '{target_date}'
+        GROUP BY ID_master
         HAVING total_count > 0
         """
 
