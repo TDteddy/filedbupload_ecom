@@ -482,7 +482,11 @@ class SKUGenerator:
                 messages=[
                     {
                         "role": "system",
-                        "content": "당신은 이커머스 상품 데이터 관리 전문가입니다. SKU 레코드를 생성할 때 논리적이고 일관성 있게 작성하세요."
+                        "content": """당신은 이커머스 상품 데이터 관리 전문가입니다. SKU 레코드를 생성할 때 논리적이고 일관성 있게 작성하세요.
+
+중요: 개수변경(케이스1) 또는 환불재판매(케이스2)는 같은 제품의 변형이므로:
+- 브랜드, 카테고리, 판매방식은 기초 SKU와 동일하게 유지됩니다 (자동 복사)
+- 제품명과 원가/정가만 조정하면 됩니다"""
                     },
                     {
                         "role": "user",
@@ -524,23 +528,24 @@ class SKUGenerator:
 
             # From GPT (default to 0 if missing for profit calculation)
             'Name_product_short_at_SKU_master': gpt_data.get('Name_product_short_at_SKU_master'),
-            'Name_brand_at_SKU_master': gpt_data.get('Name_brand_at_SKU_master'),
             'Cost_product_at_SKU_master': gpt_data.get('Cost_product_at_SKU_master') or 0,
             'Price_list_at_SKU_master': gpt_data.get('Price_list_at_SKU_master') or 0,
 
-            # From base SKU (copy over)
-            'ID_erp_at_SKU_master': base_sku.get('ID_erp_at_SKU_master'),
-            'ID_barcode_at_SKU_master': base_sku.get('ID_barcode_at_SKU_master'),
+            # From base SKU - same product, same brand/category
+            'Name_brand_at_SKU_master': base_sku.get('Name_brand_at_SKU_master'),
             'Product_line_at_SKU_master': base_sku.get('Product_line_at_SKU_master'),
             'Product_group_at_SKU_master': base_sku.get('Product_group_at_SKU_master'),
+            'ID_erp_at_SKU_master': base_sku.get('ID_erp_at_SKU_master'),
+            'ID_barcode_at_SKU_master': base_sku.get('ID_barcode_at_SKU_master'),
             'Product_type_at_SKU_master': base_sku.get('Product_type_at_SKU_master'),
             'Product_spec_at_SKU_master': base_sku.get('Product_spec_at_SKU_master'),
 
-            # Coupang 2P specific (from unmatched product)
+            # Coupang 2P specific
             'ID_option_vendor_coupang_at_SKU_master': unmatched_product.get('option_id'),
             'ID_product_sku_coupang_at_SKU_master': unmatched_product.get('product_id'),
-            'Category_2p_1_coupang_at_SKU_master': gpt_data.get('Category_2p_1_coupang_at_SKU_master'),
-            'Sales_type_coupang_at_SKU_master': gpt_data.get('Sales_type_coupang_at_SKU_master'),
+            # Copy Coupang categories from base - same product, same category
+            'Category_2p_1_coupang_at_SKU_master': base_sku.get('Category_2p_1_coupang_at_SKU_master'),
+            'Sales_type_coupang_at_SKU_master': unmatched_product.get('sales_type'),
 
             # Copy from base SKU
             'Category_2p_2_coupang_at_SKU_master': base_sku.get('Category_2p_2_coupang_at_SKU_master'),
@@ -577,14 +582,17 @@ class SKUGenerator:
     def _generate_sku_template(self, case_type, new_master_id, unmatched_product, base_sku):
         """Generate SKU record using template (fallback method)."""
         if case_type in [1, 2] and base_sku:
-            # Copy from base and update Coupang IDs
-            record = dict(base_sku)  # Copy all fields
+            # Copy ALL fields from base (same product, same brand/category)
+            record = dict(base_sku)
+
+            # Only update new identifiers
             record['ID_master'] = new_master_id
             record['ID_option_vendor_coupang_at_SKU_master'] = unmatched_product.get('option_id')
             record['ID_product_sku_coupang_at_SKU_master'] = unmatched_product.get('product_id')
             record['Name_product_short_at_SKU_master'] = unmatched_product.get('option_name', base_sku.get('Name_product_short_at_SKU_master'))
-            record['Category_2p_1_coupang_at_SKU_master'] = unmatched_product.get('category', base_sku.get('Category_2p_1_coupang_at_SKU_master'))
-            record['Sales_type_coupang_at_SKU_master'] = unmatched_product.get('sales_type', base_sku.get('Sales_type_coupang_at_SKU_master'))
+            # Keep base category/sales_type - same product, same category
+            # record['Category_2p_1_coupang_at_SKU_master'] stays from base
+            # record['Sales_type_coupang_at_SKU_master'] stays from base
 
             # Ensure cost/price are not None (use 0 for profit calculation)
             cost = record.get('Cost_product_at_SKU_master') or 0
