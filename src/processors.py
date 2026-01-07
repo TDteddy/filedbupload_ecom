@@ -579,6 +579,15 @@ class FileProcessor:
                     print(f"   확신도: {confidence:.2f}")
                     print(f"   근거: {reasoning}")
 
+                    # Validate base_master_id is not a Coupang option ID
+                    if case_type in [1, 2] and base_master_id:
+                        # Check if base_master_id looks like a Coupang option ID (long numeric string)
+                        if base_master_id.isdigit() and len(base_master_id) > 8:
+                            print(f"   ⚠️  GPT가 쿠팡 옵션 ID를 base_master_id로 리턴했습니다: {base_master_id}")
+                            print(f"   ➡️ 케이스 3(신규상품)으로 재분류합니다.")
+                            case_type = 3
+                            base_master_id = None
+
                     # Validate and correct base_master_id for case 1 (quantity change) and case 2 (refund resale)
                     corrected_base_sku_data = None
                     if case_type in [1, 2] and base_master_id:
