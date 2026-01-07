@@ -241,6 +241,22 @@ class SKUGenerator:
         if not base_id:
             raise ValueError("base_id is required for suffix generation")
 
+        # Validate base_id format - should be existing master ID, not raw option ID
+        if base_id not in existing_ids:
+            raise ValueError(
+                f"❌ base_id '{base_id}'가 기존 SKU_master에 존재하지 않습니다. "
+                f"GPT가 잘못된 base_master_id를 리턴했을 수 있습니다."
+            )
+
+        # Additional validation: base_id should follow our ID format
+        # Valid formats: D000001, T000001, S000001, ABC000001A, or already suffixed like D000001-1, D000001-A
+        # Invalid: pure numbers like "94322226257" (Coupang option ID)
+        if base_id.isdigit() and len(base_id) > 8:
+            raise ValueError(
+                f"❌ base_id '{base_id}'가 쿠팡 옵션 ID 형식입니다. "
+                f"올바른 SKU_master ID_master가 아닙니다."
+            )
+
         if numeric:
             # Try -1, -2, -3...
             suffix = 1
